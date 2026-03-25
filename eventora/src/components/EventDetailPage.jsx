@@ -90,9 +90,24 @@ export default function EventDetailPage() {
               <div style={{ width: 28, height: 28, background: "linear-gradient(135deg,#8b5cf6,#a855f7)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>⚡</div>
               Eventora
             </div>
-            <button className="nav-back" style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#ccc", padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
-              ← <span>Back to Events</span>
-            </button>
+            <button
+  className="nav-back"
+  onClick={() => navigate("/dashboard")}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    color: "#ccc",
+    padding: "6px 12px",
+    fontSize: 13,
+    cursor: "pointer"
+  }}
+>
+  ← <span>Back to Events</span>
+</button>
           </div>
           <div style={{ width: 34, height: 34, background: "linear-gradient(135deg,#8b5cf6,#6366f1)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>M</div>
         </nav>
