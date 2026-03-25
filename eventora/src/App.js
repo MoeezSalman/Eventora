@@ -5,6 +5,7 @@ import SeatSelectionPage from "./components/SeatSelectionPage";
 import BookingConfirmedPage from "./components/BookingConfirmedPage";
 import Dashboard from "./components/Dashboard";
 import EventoraAuth from "./components/EventoraAuth";
+import OrganizerDashboard from "./components/OrganizerDashboard";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<EventoraAuth />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/organizer-dashboard" element={<OrganizerDashboard />} />
         <Route path="/event" element={<EventDetailPage />} />
         <Route path="/seat-selection" element={<SeatSelectionPage />} />
         <Route path="/booking-confirmed" element={<BookingConfirmedPage />} />
