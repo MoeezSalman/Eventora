@@ -3,12 +3,16 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import EventDetailPage from "./components/EventDetailPage";
 import SeatSelectionPage from "./components/SeatSelectionPage";
 import BookingConfirmedPage from "./components/BookingConfirmedPage";
+import Dashboard from "./components/Dashboard";
+import EventoraAuth from "./components/EventoraAuth";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<EventDetailPage />} />
+        <Route path="/" element={<EventoraAuth />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/event" element={<EventDetailPage />} />
         <Route path="/seat-selection" element={<SeatSelectionPage />} />
         <Route path="/booking-confirmed" element={<BookingConfirmedPage />} />
       </Routes>
