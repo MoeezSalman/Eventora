@@ -396,7 +396,13 @@ export default function EventoraAuth() {
   const [activeRole, setActiveRole] = useState("attendee");
   const navigate = useNavigate();
   const isSignIn = activeTab === "signin";
-
+const handleAuth = () => {
+  if (activeRole === "organizer") {
+    navigate("/organizer-dashboard");
+  } else {
+    navigate("/dashboard");
+  }
+};
   return (
     <>
       <style>{styles}</style>
@@ -488,7 +494,7 @@ export default function EventoraAuth() {
               </div>
              <button
   className="submit-btn"
-  onClick={() => navigate("/dashboard")}
+  onClick={handleAuth}
 >
   {isSignIn ? "Sign In →" : "Create Account →"}
 </button>
