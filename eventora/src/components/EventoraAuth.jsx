@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { registerUser, loginUser } from "../services/authService";
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
@@ -392,17 +393,67 @@ const styles = `
 `;
 
 export default function EventoraAuth() {
+  const [form, setForm] = useState({
+  name: "",
+  email: "",
+  password: "",
+});
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState("");
+
+
   const [activeTab, setActiveTab] = useState("signin");
   const [activeRole, setActiveRole] = useState("attendee");
   const navigate = useNavigate();
   const isSignIn = activeTab === "signin";
-const handleAuth = () => {
-  if (activeRole === "organizer") {
+const handleChange = (e) => {
+  setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+};
+
+const handleAuth = async () => {
+  try {
+    setLoading(true);
+    setError("");
+
+    let response;
+
+    if (isSignIn) {
+      response = await loginUser({
+        email: form.email,
+        password: form.password,
+      });
+    } else {
+      response = await registerUser({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: activeRole,
+      });
+    }
+
+    if (response.token) {
+      localStorage.setItem("eventora_token", response.token);
+    }
+
+    if (response.user) {
+  localStorage.setItem("eventora_user", JSON.stringify(response.user));
+
+  const role = response.user?.role?.toLowerCase().trim();
+  console.log(role)
+  if (role === "organizer") {
     navigate("/organizer-dashboard");
   } else {
     navigate("/dashboard");
   }
+}
+  } catch (err) {
+    setError(err.response?.data?.message || "Authentication failed");
+  } finally {
+    setLoading(false);
+  }
 };
+
+
   return (
     <>
       <style>{styles}</style>
@@ -481,22 +532,46 @@ const handleAuth = () => {
               {!isSignIn && (
                 <div className="form-field">
                   <label>Full Name</label>
-                  <input type="text" placeholder="Your Name" />
+                  <input
+  type="text"
+  name="name"
+  placeholder="Your Name"
+  value={form.name}
+  onChange={handleChange}
+/>
                 </div>
               )}
               <div className="form-field">
                 <label>Email Address</label>
-                <input type="email" placeholder="you@example.com" />
+                <input
+  type="email"
+  name="email"
+  placeholder="you@example.com"
+  value={form.email}
+  onChange={handleChange}
+/>
               </div>
               <div className="form-field">
                 <label>Password</label>
-                <input type="password" placeholder="••••••••" />
+                <input
+  type="password"
+  name="password"
+  placeholder="••••••••"
+  value={form.password}
+  onChange={handleChange}
+/>
               </div>
+              {error && (
+  <p style={{ color: "#f87171", fontSize: 13, marginBottom: 8 }}>
+    {error}
+  </p>
+)}
              <button
   className="submit-btn"
   onClick={handleAuth}
+  disabled={loading}
 >
-  {isSignIn ? "Sign In →" : "Create Account →"}
+  {loading ? "Please wait..." : isSignIn ? "Sign In →" : "Create Account →"}
 </button>
             </div>
 

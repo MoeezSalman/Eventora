@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import {
+  getOrganizerEvents,
+  createOrganizerEvent,
+  updateOrganizerEvent,
+} from "../services/organizerService";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap');
@@ -32,7 +37,6 @@ const styles = `
       radial-gradient(ellipse at 90% 100%, rgba(236,72,153,0.05) 0%, transparent 40%);
   }
 
-  /* ─── NAV ─── */
   .nav {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 32px; height: 58px;
@@ -51,10 +55,8 @@ const styles = `
   .nav-notif::after { content:'3'; position:absolute; top:-4px;right:-4px; width:16px;height:16px; background:var(--pink); border-radius:50%; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; color:#fff; }
   .nav-avatar { width:34px;height:34px; background:linear-gradient(135deg,#8b5cf6,#6366f1); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:700; font-size:13px; cursor:pointer; }
 
-  /* ─── PAGE LAYOUT ─── */
   .page { max-width: 1360px; margin: 0 auto; padding: 28px 32px 60px; }
 
-  /* ─── HEADER ─── */
   .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; gap:16px; flex-wrap:wrap; }
   .page-title { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; line-height:1.15; }
   .page-sub { font-size:14px; color:var(--muted); margin-top:5px; }
@@ -65,7 +67,6 @@ const styles = `
   .btn-ghost { background:var(--surface2); border:1px solid var(--border); color:var(--text); }
   .btn-ghost:hover { border-color:var(--border-hi); background:rgba(139,92,246,0.08); }
 
-  /* ─── STAT CARDS ─── */
   .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
   .stat-card {
     background:var(--surface);
@@ -90,7 +91,6 @@ const styles = `
   .delta-up { background:rgba(16,185,129,0.15); color:#10b981; }
   .delta-dn { background:rgba(239,68,68,0.15); color:#ef4444; }
 
-  /* ─── TOOLBAR ─── */
   .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
   .toolbar-left { display:flex; gap:8px; flex-wrap:wrap; }
   .filter-pill {
@@ -108,7 +108,6 @@ const styles = `
   .search-box input { background:none; border:none; outline:none; color:var(--text); font-size:13px; font-family:inherit; width:200px; }
   .search-box input::placeholder { color:var(--muted); }
 
-  /* ─── EVENT TABLE / CARDS ─── */
   .events-list { display:flex; flex-direction:column; gap:14px; }
 
   .event-row {
@@ -159,7 +158,6 @@ const styles = `
   .icon-btn { width:32px;height:32px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.2s; }
   .icon-btn:hover { border-color:var(--border-hi); color:#fff; }
 
-  /* Expand panel */
   .expand-panel {
     border-top:1px solid var(--border);
     padding:0 22px;
@@ -177,18 +175,15 @@ const styles = `
   .mini-stat-label { font-size:10px; color:var(--muted); font-weight:600; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
   .mini-stat-val { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; }
 
-  /* Progress bar */
   .progress-bar { height:6px; background:rgba(255,255,255,0.07); border-radius:999px; overflow:hidden; margin-top:10px; }
   .progress-fill { height:100%; border-radius:999px; transition: width 0.6s ease; }
 
-  /* Bookings table */
   .bookings-table { width:100%; border-collapse:collapse; font-size:13px; }
   .bookings-table th { color:var(--muted); font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; padding:0 0 10px; text-align:left; }
   .bookings-table td { padding:9px 0; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text); vertical-align:middle; }
   .bookings-table tr:last-child td { border-bottom:none; }
   .booking-avatar { width:26px;height:26px; border-radius:50%; background:linear-gradient(135deg,#8b5cf6,#a855f7); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
 
-  /* ─── MODAL ─── */
   .modal-overlay {
     position:fixed; inset:0; background:rgba(0,0,0,0.7);
     backdrop-filter:blur(6px); z-index:500;
@@ -260,7 +255,6 @@ const styles = `
 
   .modal-footer { padding:18px 26px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; }
 
-  /* ─── RESPONSIVE ─── */
   @media (max-width:1100px) {
     .stats-row { grid-template-columns:repeat(2,1fr); }
     .expand-grid { grid-template-columns:1fr 1fr; }
@@ -270,7 +264,6 @@ const styles = `
     .nav { padding:0 16px; }
     .event-row-main { grid-template-columns:40px 1fr auto; gap:12px; }
     .tickets-stat, .revenue-stat, .row-actions { display:none; }
-    .row-actions { display:none; }
     .expand-grid { grid-template-columns:1fr; }
     .form-row { grid-template-columns:1fr; }
     .stats-row { grid-template-columns:repeat(2,1fr); gap:10px; }
@@ -282,98 +275,6 @@ const styles = `
     .tier-row { grid-template-columns:1fr 100px 36px; }
   }
 `;
-
-const EVENTS_DATA = [
-  {
-    id: 1,
-    emoji: "🎵",
-    emojiColor: "linear-gradient(135deg,#5d3a8a,#8b5cf6)",
-    name: "Nescafé Basement Live — Season Finale",
-    category: "Music",
-    venue: "Alhamra Arts Council, Lahore",
-    date: "22 Mar 2026",
-    time: "7:00 PM",
-    status: "live",
-    capacity: 2400,
-    sold: 1870,
-    revenue: 4675000,
-    bookings: [
-      { name: "Ahmed K.", seats: "A12, A13", type: "Premium", paid: "Rs. 9,450", time: "2h ago" },
-      { name: "Sara M.", seats: "B4", type: "VIP", paid: "Rs. 8,500", time: "5h ago" },
-      { name: "Usman T.", seats: "C7, C8, C9", type: "Standard", paid: "Rs. 7,500", time: "8h ago" },
-      { name: "Hiba R.", seats: "A1", type: "VIP", paid: "Rs. 8,925", time: "12h ago" },
-    ],
-  },
-  {
-    id: 2,
-    emoji: "⚽",
-    emojiColor: "linear-gradient(135deg,#064e3b,#059669)",
-    name: "PSL 10 — Lahore Qalandars vs Karachi Kings",
-    category: "Sports",
-    venue: "Gaddafi Stadium, Lahore",
-    date: "28 Mar 2026",
-    time: "7:30 PM",
-    status: "upcoming",
-    capacity: 27000,
-    sold: 14350,
-    revenue: 17220000,
-    bookings: [
-      { name: "Bilal A.", seats: "Row 12, Seat 22", type: "Standard", paid: "Rs. 1,200", time: "1h ago" },
-      { name: "Fatima Z.", seats: "VIP Box 3", type: "VIP", paid: "Rs. 12,000", time: "3h ago" },
-      { name: "Kamran S.", seats: "Row 5, Seats 8–10", type: "Premium", paid: "Rs. 7,500", time: "6h ago" },
-    ],
-  },
-  {
-    id: 3,
-    emoji: "🗂️",
-    emojiColor: "linear-gradient(135deg,#1e3a5f,#2563eb)",
-    name: "TechSummit 2026: AI in Live Events",
-    category: "Conferences",
-    venue: "Expo Center, Lahore",
-    date: "10 Apr 2026",
-    time: "9:00 AM",
-    status: "upcoming",
-    capacity: 800,
-    sold: 612,
-    revenue: 2509200,
-    bookings: [
-      { name: "Zara N.", seats: "Hall A, Seat 14", type: "Standard", paid: "Rs. 4,100", time: "30m ago" },
-      { name: "Ali H.", seats: "VIP Table 2", type: "VIP", paid: "Rs. 12,000", time: "4h ago" },
-    ],
-  },
-  {
-    id: 4,
-    emoji: "🎭",
-    emojiColor: "linear-gradient(135deg,#6a1a3a,#be185d)",
-    name: "Classical Night: Sufi Rhythm",
-    category: "Cultural",
-    venue: "Alhamra Hall, Lahore",
-    date: "5 Apr 2026",
-    time: "8:00 PM",
-    status: "upcoming",
-    capacity: 600,
-    sold: 201,
-    revenue: 351750,
-    bookings: [
-      { name: "Noor B.", seats: "F3, F4", type: "Standard", paid: "Rs. 3,500", time: "2d ago" },
-    ],
-  },
-  {
-    id: 5,
-    emoji: "📸",
-    emojiColor: "linear-gradient(135deg,#1e3a4a,#0891b2)",
-    name: "Photography Masterclass",
-    category: "Workshops",
-    venue: "Art Hub, Lahore",
-    date: "13 Apr 2026",
-    time: "11:00 AM",
-    status: "draft",
-    capacity: 60,
-    sold: 0,
-    revenue: 0,
-    bookings: [],
-  },
-];
 
 const STATUS_CONFIG = {
   live:     { label: "Live",     dot: "#10b981", bg: "rgba(16,185,129,0.12)",  color: "#10b981" },
@@ -387,8 +288,14 @@ const FILTERS = ["All", "Live", "Upcoming", "Draft", "Ended"];
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
   return (
-    <span className="status-badge" style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.dot}33` }}>
-      <span className="status-dot" style={{ background: cfg.dot, borderRadius: "50%", width: 6, height: 6, display: "inline-block" }} />
+    <span
+      className="status-badge"
+      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.dot}33` }}
+    >
+      <span
+        className="status-dot"
+        style={{ background: cfg.dot, borderRadius: "50%", width: 6, height: 6, display: "inline-block" }}
+      />
       {cfg.label}
     </span>
   );
@@ -397,9 +304,58 @@ function StatusBadge({ status }) {
 function ProgressBar({ pct, color }) {
   return (
     <div className="progress-bar">
-      <div className="progress-fill" style={{ width: `${Math.min(pct, 100)}%`, background: color || "linear-gradient(90deg,#8b5cf6,#ec4899)" }} />
+      <div
+        className="progress-fill"
+        style={{ width: `${Math.min(pct, 100)}%`, background: color || "linear-gradient(90deg,#8b5cf6,#ec4899)" }}
+      />
     </div>
   );
+}
+
+function getEventEmoji(category) {
+  switch (category) {
+    case "Music":
+      return "🎵";
+    case "Sports":
+      return "⚽";
+    case "Conferences":
+      return "🗂️";
+    case "Cultural":
+      return "🎭";
+    case "Workshops":
+      return "🛠";
+    case "Photography":
+      return "📸";
+    case "Comedy":
+      return "🎤";
+    case "Food & Drink":
+      return "🍴";
+    default:
+      return "🎫";
+  }
+}
+
+function getEventEmojiColor(category) {
+  switch (category) {
+    case "Music":
+      return "linear-gradient(135deg,#5d3a8a,#8b5cf6)";
+    case "Sports":
+      return "linear-gradient(135deg,#064e3b,#059669)";
+    case "Conferences":
+      return "linear-gradient(135deg,#1e3a5f,#2563eb)";
+    case "Cultural":
+      return "linear-gradient(135deg,#6a1a3a,#be185d)";
+    case "Workshops":
+      return "linear-gradient(135deg,#0f766e,#06b6d4)";
+    case "Photography":
+      return "linear-gradient(135deg,#1e3a4a,#0891b2)";
+    case "Comedy":
+      return "linear-gradient(135deg,#7c2d12,#f97316)";
+    case "Food & Drink":
+      return "linear-gradient(135deg,#854d0e,#eab308)";
+    default:
+      return "linear-gradient(135deg,#8b5cf6,#ec4899)";
+  }
 }
 
 function EventRow({ ev, onEdit }) {
@@ -409,53 +365,54 @@ function EventRow({ ev, onEdit }) {
 
   return (
     <div className="event-row">
-      <div className="event-row-main" onClick={() => setOpen(o => !o)}>
-        {/* Emoji */}
+      <div className="event-row-main" onClick={() => setOpen((o) => !o)}>
         <div className="event-emoji-box" style={{ background: ev.emojiColor }}>
           {ev.emoji}
         </div>
 
-        {/* Info */}
         <div className="event-info">
           <div className="event-name">{ev.name}</div>
           <div className="event-meta-row">
-            <span className="event-meta-item">📅 {ev.date} · {ev.time}</span>
+            <span className="event-meta-item">📅 {ev.date} {ev.time ? `· ${ev.time}` : ""}</span>
             <span className="event-meta-item">📍 {ev.venue}</span>
             <span className="event-meta-item" style={{ color: "#9ca3af" }}>{ev.category}</span>
           </div>
         </div>
 
-        {/* Status */}
         <StatusBadge status={ev.status} />
 
-        {/* Tickets sold */}
         <div className="tickets-stat">
-          <div className="tickets-stat-val" style={{ color: pct > 85 ? "#ef4444" : "#a78bfa" }}>{ev.sold.toLocaleString()}</div>
+          <div className="tickets-stat-val" style={{ color: pct > 85 ? "#ef4444" : "#a78bfa" }}>
+            {ev.sold.toLocaleString()}
+          </div>
           <div className="tickets-stat-lbl">/ {ev.capacity.toLocaleString()} sold</div>
           <div style={{ width: 90, marginTop: 5 }}>
             <ProgressBar pct={pct} color={fillColor} />
           </div>
         </div>
 
-        {/* Revenue */}
         <div className="revenue-stat">
-          <div className="revenue-val">Rs. {ev.revenue > 999999 ? (ev.revenue / 1000000).toFixed(1) + "M" : ev.revenue.toLocaleString()}</div>
+          <div className="revenue-val">
+            Rs. {ev.revenue > 999999 ? (ev.revenue / 1000000).toFixed(1) + "M" : ev.revenue.toLocaleString()}
+          </div>
           <div className="revenue-lbl">Revenue</div>
         </div>
 
-        {/* Actions */}
-        <div className="row-actions" onClick={e => e.stopPropagation()}>
+        <div className="row-actions" onClick={(e) => e.stopPropagation()}>
           <button className="icon-btn" title="Edit" onClick={() => onEdit(ev)}>✏️</button>
           <button className="icon-btn" title="Analytics">📊</button>
           <button className="icon-btn" title="More">⋯</button>
-          <button className="icon-btn" title={open ? "Collapse" : "Expand"} onClick={() => setOpen(o => !o)}
-            style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.25s" }}>
+          <button
+            className="icon-btn"
+            title={open ? "Collapse" : "Expand"}
+            onClick={() => setOpen((o) => !o)}
+            style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.25s" }}
+          >
             ▾
           </button>
         </div>
       </div>
 
-      {/* ── EXPAND PANEL ── */}
       <div className={`expand-panel ${open ? "open" : ""}`}>
         <div className="expand-grid" style={{ marginBottom: 18 }}>
           <div className="mini-stat">
@@ -474,13 +431,24 @@ function EventRow({ ev, onEdit }) {
             <div className="mini-stat-val" style={{ color: pct > 85 ? "#ef4444" : "#f4f6ff" }}>
               {(ev.capacity - ev.sold).toLocaleString()}
             </div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>of {ev.capacity.toLocaleString()} total capacity</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6 }}>
+              of {ev.capacity.toLocaleString()} total capacity
+            </div>
           </div>
         </div>
 
-        {ev.bookings.length > 0 && (
+        {ev.bookings.length > 0 ? (
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--muted)",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
               Recent Bookings
             </div>
             <table className="bookings-table">
@@ -498,17 +466,34 @@ function EventRow({ ev, onEdit }) {
                   <tr key={i}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div className="booking-avatar">{b.name[0]}</div>
+                        <div className="booking-avatar">{b.name?.[0] || "U"}</div>
                         {b.name}
                       </div>
                     </td>
                     <td style={{ color: "var(--muted)" }}>{b.seats}</td>
                     <td>
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20,
-                        background: b.type === "VIP" ? "rgba(245,158,11,0.15)" : b.type === "Premium" ? "rgba(6,182,212,0.15)" : "rgba(139,92,246,0.15)",
-                        color: b.type === "VIP" ? "#f59e0b" : b.type === "Premium" ? "#06b6d4" : "#a78bfa"
-                      }}>{b.type}</span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 20,
+                          background:
+                            b.type === "VIP"
+                              ? "rgba(245,158,11,0.15)"
+                              : b.type === "Premium"
+                              ? "rgba(6,182,212,0.15)"
+                              : "rgba(139,92,246,0.15)",
+                          color:
+                            b.type === "VIP"
+                              ? "#f59e0b"
+                              : b.type === "Premium"
+                              ? "#06b6d4"
+                              : "#a78bfa",
+                        }}
+                      >
+                        {b.type}
+                      </span>
                     </td>
                     <td style={{ fontWeight: 700 }}>{b.paid}</td>
                     <td style={{ color: "var(--muted)", fontSize: 12 }}>{b.time}</td>
@@ -517,9 +502,10 @@ function EventRow({ ev, onEdit }) {
               </tbody>
             </table>
           </div>
-        )}
-        {ev.bookings.length === 0 && (
-          <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "8px 0 4px" }}>No bookings yet — event is in draft.</p>
+        ) : (
+          <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "8px 0 4px" }}>
+            No bookings yet — event is in draft.
+          </p>
         )}
       </div>
     </div>
@@ -527,92 +513,169 @@ function EventRow({ ev, onEdit }) {
 }
 
 const TICKET_TIERS_DEFAULT = [
-  { name: "Standard", price: "", qty: "" },
-  { name: "Premium", price: "", qty: "" },
-  { name: "VIP", price: "", qty: "" },
+  { name: "Standard", price: "", quantity: "" },
+  { name: "Premium", price: "", quantity: "" },
+  { name: "VIP", price: "", quantity: "" },
 ];
 
-function CreateEventModal({ onClose }) {
+function CreateEventModal({ onClose, onCreated }) {
   const [tiers, setTiers] = useState(TICKET_TIERS_DEFAULT);
-  const [form, setForm] = useState({ name: "", category: "", venue: "", date: "", time: "", description: "", capacity: "" });
+const [form, setForm] = useState({
+  title: "",
+  category: "",
+  venue: "",
+  eventDate: "",
+  time: "",
+  description: "",
+  capacity: "",
+  price: "",
+  status: "upcoming",
+});
 
-  const updateForm = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const updateForm = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleCreate = async () => {
+    try {
+      if (!form.title || !form.category || !form.venue || !form.eventDate) {
+        alert("Title, category, venue, and event date are required");
+        return;
+      }
+
+      const payload = {
+  title: form.title,
+  category: form.category,
+  venue: form.venue,
+  eventDate: form.eventDate,
+  gateOpens: form.time, // send selected time here
+  description: form.description,
+  status: form.status,
+  capacity: Number(form.capacity) || 0,
+  price: Number(form.price) || 0,
+  ticketTiers: tiers.map((tier) => ({
+    name: tier.name,
+    price: Number(tier.price) || 0,
+    quantity: Number(tier.quantity) || 0,
+  })),
+};
+
+      const res = await createOrganizerEvent(payload);
+      alert("Event created!");
+      onClose();
+      onCreated?.(res);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to create event");
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <div className="modal-title">Create New Event</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>Fill in the details to publish your event</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>
+              Fill in the details to publish your event
+            </div>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="modal-body">
-          {/* Event Name */}
           <div className="form-group">
             <label>Event Name *</label>
-            <input className="form-input" placeholder="e.g. Nescafé Basement Season Finale" value={form.name} onChange={e => updateForm("name", e.target.value)} />
+            <input
+              className="form-input"
+              placeholder="e.g. Nescafé Basement Season Finale"
+              value={form.title}
+              onChange={(e) => updateForm("title", e.target.value)}
+            />
           </div>
 
-          {/* Category + Venue */}
           <div className="form-row">
             <div className="form-group">
               <label>Category *</label>
-              <select className="form-select" value={form.category} onChange={e => updateForm("category", e.target.value)}>
+              <select
+                className="form-select"
+                value={form.category}
+                onChange={(e) => updateForm("category", e.target.value)}
+              >
                 <option value="">Select category</option>
-                <option>🎵 Music</option>
-                <option>⚽ Sports</option>
-                <option>🗂️ Conferences</option>
-                <option>🎭 Cultural</option>
-                <option>🛠 Workshops</option>
-                <option>📸 Photography</option>
-                <option>🎤 Comedy</option>
-                <option>🍴 Food & Drink</option>
+                <option value="Music">Music</option>
+                <option value="Sports">Sports</option>
+                <option value="Conferences">Conferences</option>
+                <option value="Cultural">Cultural</option>
+                <option value="Workshops">Workshops</option>
+                <option value="Photography">Photography</option>
+                <option value="Comedy">Comedy</option>
+                <option value="Food & Drink">Food & Drink</option>
               </select>
             </div>
+
             <div className="form-group">
               <label>Venue *</label>
-              <input className="form-input" placeholder="e.g. Alhamra Arts Council" value={form.venue} onChange={e => updateForm("venue", e.target.value)} />
+              <input
+                className="form-input"
+                placeholder="e.g. Alhamra Arts Council"
+                value={form.venue}
+                onChange={(e) => updateForm("venue", e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Date + Time */}
           <div className="form-row">
             <div className="form-group">
               <label>Event Date *</label>
-              <input className="form-input" type="date" value={form.date} onChange={e => updateForm("date", e.target.value)} />
+              <input
+                className="form-input"
+                type="date"
+                value={form.eventDate}
+                onChange={(e) => updateForm("eventDate", e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label>Event Time *</label>
-              <input className="form-input" type="time" value={form.time} onChange={e => updateForm("time", e.target.value)} />
+              <input
+                className="form-input"
+                type="time"
+                value={form.time}
+                onChange={(e) => updateForm("time", e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Capacity + Gate Opens */}
           <div className="form-row">
             <div className="form-group">
               <label>Total Capacity *</label>
-              <input className="form-input" type="number" placeholder="e.g. 2400" value={form.capacity} onChange={e => updateForm("capacity", e.target.value)} />
+              <input
+                className="form-input"
+                type="number"
+                placeholder="e.g. 2400"
+                value={form.capacity}
+                onChange={(e) => updateForm("capacity", e.target.value)}
+              />
             </div>
             <div className="form-group">
-              <label>Gate Opens (Before)</label>
-              <select className="form-select">
-                <option>30 minutes before</option>
-                <option>1 hour before</option>
-                <option>2 hours before</option>
-              </select>
+              <label>Starting Price *</label>
+              <input
+                className="form-input"
+                type="number"
+                placeholder="e.g. 2500"
+                value={form.price}
+                onChange={(e) => updateForm("price", e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Description */}
           <div className="form-group">
             <label>Event Description</label>
-            <textarea className="form-textarea" placeholder="Tell attendees what to expect..." value={form.description} onChange={e => updateForm("description", e.target.value)} />
+            <textarea
+              className="form-textarea"
+              placeholder="Tell attendees what to expect..."
+              value={form.description}
+              onChange={(e) => updateForm("description", e.target.value)}
+            />
           </div>
 
-          {/* Banner Upload */}
           <div className="form-group">
             <label>Event Banner</label>
             <div className="upload-zone">
@@ -622,7 +685,6 @@ function CreateEventModal({ onClose }) {
             </div>
           </div>
 
-          {/* Ticket Tiers */}
           <div className="form-group">
             <label>Ticket Tiers</label>
             <div className="ticket-tiers">
@@ -630,25 +692,73 @@ function CreateEventModal({ onClose }) {
                 <div key={i} className="tier-row">
                   <span className="tier-name">{tier.name}</span>
                   <div style={{ position: "relative" }}>
-                    <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "var(--muted)" }}>Rs.</span>
-                    <input className="tier-price-input" style={{ paddingLeft: 30 }} placeholder="Price" value={tier.price}
-                      onChange={e => setTiers(prev => prev.map((t, j) => j === i ? { ...t, price: e.target.value } : t))} />
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        fontSize: 12,
+                        color: "var(--muted)",
+                      }}
+                    >
+                      Rs.
+                    </span>
+                    <input
+                      className="tier-price-input"
+                      style={{ paddingLeft: 30 }}
+                      placeholder="Price"
+                      value={tier.price}
+                      onChange={(e) =>
+                        setTiers((prev) =>
+                          prev.map((t, j) => (j === i ? { ...t, price: e.target.value } : t))
+                        )
+                      }
+                    />
                   </div>
-                  <input className="tier-price-input" placeholder="Qty" value={tier.qty}
-                    onChange={e => setTiers(prev => prev.map((t, j) => j === i ? { ...t, qty: e.target.value } : t))} />
-                  <button onClick={() => setTiers(prev => prev.filter((_, j) => j !== i))}
-                    style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#ef4444", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <input
+                      className="tier-price-input"
+                      placeholder="Qty"
+                      value={tier.quantity}
+                      onChange={(e) =>
+                        setTiers((prev) =>
+                          prev.map((t, j) => (j === i ? { ...t, quantity: e.target.value } : t))
+                        )
+                      }
+                    />
+                  <button
+                    type="button"
+                    onClick={() => setTiers((prev) => prev.filter((_, j) => j !== i))}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 7,
+                      border: "1px solid rgba(239,68,68,0.3)",
+                      background: "rgba(239,68,68,0.1)",
+                      color: "#ef4444",
+                      cursor: "pointer",
+                      fontSize: 15,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     ×
                   </button>
                 </div>
               ))}
-              <button className="add-tier-btn" onClick={() => setTiers(prev => [...prev, { name: `Tier ${prev.length + 1}`, price: "", qty: "" }])}>
+              <button
+                type="button"
+                className="add-tier-btn"
+                onClick={() =>
+                  setTiers((prev) => [...prev, { name: `Tier ${prev.length + 1}`, price: "", quantity: "" }])
+                }
+              >
                 + Add Tier
               </button>
             </div>
           </div>
 
-          {/* Age Restriction + Visibility */}
           <div className="form-row">
             <div className="form-group">
               <label>Age Restriction</label>
@@ -672,60 +782,148 @@ function CreateEventModal({ onClose }) {
 
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Save Draft</button>
-          <button className="btn btn-primary">Publish Event →</button>
+          <button className="btn btn-primary" onClick={handleCreate}>
+            Publish Event →
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function EditModal({ ev, onClose }) {
+function EditModal({ ev, onClose, onUpdated }) {
+    const [form, setForm] = useState({
+      title: ev.title || ev.name || "",
+      venue: ev.venue || ev.location || "",
+      eventDate: ev.eventDate || ev.date || "",
+      time: ev.gateOpens || ev.time || "",
+      capacity: ev.capacity || "",
+      status: ev.status || "draft",
+      description: ev.description || "",
+      category: ev.category || "",
+      price: ev.price || "",
+    });
+
+  const updateForm = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+const handleUpdate = async () => {
+  try {
+    const payload = {
+  title: form.title,
+  venue: form.venue,
+  eventDate: form.eventDate,
+  gateOpens: form.time, // save edited time here too
+  capacity: Number(form.capacity) || 0,
+  status: form.status,
+  description: form.description,
+  category: form.category,
+  price: Number(form.price) || 0,
+};
+
+    const res = await updateOrganizerEvent(ev._id || ev.id, payload);
+    alert("Event updated!");
+    onClose();
+    onUpdated?.(res);
+  } catch (err) {
+    alert(err.response?.data?.message || "Update failed");
+  }
+};
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <div className="modal-title">Edit Event</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>{ev.name}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>
+              {ev.title || ev.name}
+            </div>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
+
         <div className="modal-body">
+          <div className="form-group">
+            <label>Event Title</label>
+            <input
+              className="form-input"
+              value={form.title}
+              onChange={(e) => updateForm("title", e.target.value)}
+            />
+          </div>
+
           <div className="form-row">
             <div className="form-group">
               <label>Event Date</label>
-              <input className="form-input" type="date" defaultValue={ev.date} />
+              <input
+                className="form-input"
+                type="date"
+                value={form.eventDate}
+                onChange={(e) => updateForm("eventDate", e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label>Event Time</label>
-              <input className="form-input" type="time" defaultValue={ev.time.replace(" ", "")} />
+              <input
+                className="form-input"
+                type="time"
+                value={form.time}
+                onChange={(e) => updateForm("time", e.target.value)}
+              />
             </div>
           </div>
+
           <div className="form-group">
             <label>Venue</label>
-            <input className="form-input" defaultValue={ev.venue} />
+            <input
+              className="form-input"
+              value={form.venue}
+              onChange={(e) => updateForm("venue", e.target.value)}
+            />
           </div>
+
           <div className="form-group">
             <label>Capacity</label>
-            <input className="form-input" type="number" defaultValue={ev.capacity} />
+            <input
+              className="form-input"
+              type="number"
+              value={form.capacity}
+              onChange={(e) => updateForm("capacity", e.target.value)}
+            />
           </div>
+
           <div className="form-group">
             <label>Status</label>
-            <select className="form-select" defaultValue={ev.status}>
+            <select
+              className="form-select"
+              value={form.status}
+              onChange={(e) => updateForm("status", e.target.value)}
+            >
               <option value="draft">Draft</option>
               <option value="upcoming">Upcoming</option>
               <option value="live">Live</option>
               <option value="ended">Ended</option>
             </select>
           </div>
+
           <div className="form-group">
             <label>Description</label>
-            <textarea className="form-textarea" placeholder="Update description..." />
+            <textarea
+              className="form-textarea"
+              placeholder="Update description..."
+              value={form.description}
+              onChange={(e) => updateForm("description", e.target.value)}
+            />
           </div>
         </div>
+
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary">Save Changes →</button>
+          <button className="btn btn-primary" onClick={handleUpdate}>
+            Save Changes →
+          </button>
         </div>
       </div>
     </div>
@@ -733,19 +931,45 @@ function EditModal({ ev, onClose }) {
 }
 
 export default function OrganizerDashboard() {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
 
-  const totalSold = EVENTS_DATA.reduce((s, e) => s + e.sold, 0);
-  const totalRevenue = EVENTS_DATA.reduce((s, e) => s + e.revenue, 0);
-  const totalEvents = EVENTS_DATA.length;
-  const liveEvents = EVENTS_DATA.filter(e => e.status === "live").length;
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await getOrganizerEvents();
+      setEvents(res.events || res || []);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load events");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const filtered = EVENTS_DATA.filter(ev => {
-    const matchFilter = filter === "All" || ev.status.toLowerCase() === filter.toLowerCase();
-    const matchSearch = ev.name.toLowerCase().includes(search.toLowerCase()) || ev.venue.toLowerCase().includes(search.toLowerCase());
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const totalSold = events.reduce((s, e) => s + (e.sold || 0), 0);
+  const totalRevenue = events.reduce((s, e) => s + (e.revenue || 0), 0);
+  const totalEvents = events.length;
+  const liveEvents = events.filter((e) => e.status === "live").length;
+
+  const filtered = events.filter((ev) => {
+    const matchFilter =
+      filter === "All" || (ev.status || "").toLowerCase() === filter.toLowerCase();
+
+    const matchSearch =
+      (ev.name || ev.title || "").toLowerCase().includes(search.toLowerCase()) ||
+      (ev.venue || ev.location || "").toLowerCase().includes(search.toLowerCase());
+
     return matchFilter && matchSearch;
   });
 
@@ -753,7 +977,6 @@ export default function OrganizerDashboard() {
     <>
       <style>{styles}</style>
       <div className="shell">
-        {/* NAV */}
         <nav className="nav">
           <div className="nav-logo">
             <div className="nav-logo-icon">⚡</div>
@@ -770,7 +993,6 @@ export default function OrganizerDashboard() {
         </nav>
 
         <div className="page">
-          {/* HEADER */}
           <div className="page-header">
             <div>
               <div className="page-title">My Events</div>
@@ -784,55 +1006,96 @@ export default function OrganizerDashboard() {
             </div>
           </div>
 
-          {/* STATS */}
           <div className="stats-row">
             {[
               { icon: "🎟️", label: "Total Events", value: totalEvents, delta: "+2 this month", up: true, glow: "#8b5cf6" },
-              { icon: "⚡", label: "Live Now",      value: liveEvents,   delta: "Currently active", up: true, glow: "#10b981" },
-              { icon: "👥", label: "Tickets Sold",  value: totalSold.toLocaleString(), delta: "+430 this week", up: true, glow: "#06b6d4" },
+              { icon: "⚡", label: "Live Now", value: liveEvents, delta: "Currently active", up: true, glow: "#10b981" },
+              { icon: "👥", label: "Tickets Sold", value: totalSold.toLocaleString(), delta: "+430 this week", up: true, glow: "#06b6d4" },
               { icon: "💰", label: "Total Revenue", value: "Rs. " + (totalRevenue / 1000000).toFixed(1) + "M", delta: "+Rs. 450K", up: true, glow: "#ec4899" },
-            ].map(s => (
+            ].map((s) => (
               <div className="stat-card" key={s.label} style={{ "--accent-glow": s.glow }}>
                 <div className="stat-icon">{s.icon}</div>
                 <div className="stat-value">{s.value}</div>
                 <div className="stat-label">{s.label}</div>
-                <div className={`stat-delta ${s.up ? "delta-up" : "delta-dn"}`}>{s.up ? "↑" : "↓"} {s.delta}</div>
+                <div className={`stat-delta ${s.up ? "delta-up" : "delta-dn"}`}>
+                  {s.up ? "↑" : "↓"} {s.delta}
+                </div>
               </div>
             ))}
           </div>
 
-          {/* TOOLBAR */}
           <div className="toolbar">
             <div className="toolbar-left">
-              {FILTERS.map(f => (
-                <button key={f} className={`filter-pill ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>{f}</button>
+              {FILTERS.map((f) => (
+                <button
+                  key={f}
+                  className={`filter-pill ${filter === f ? "active" : ""}`}
+                  onClick={() => setFilter(f)}
+                >
+                  {f}
+                </button>
               ))}
             </div>
             <div className="search-box">
               <span style={{ fontSize: 14, color: "var(--muted)" }}>🔍</span>
-              <input placeholder="Search events or venues…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input
+                placeholder="Search events or venues…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* EVENT LIST */}
+          {loading && <p style={{ color: "#aaa", marginBottom: 12 }}>Loading events...</p>}
+          {error && <p style={{ color: "#ef4444", marginBottom: 12 }}>{error}</p>}
+
           <div className="events-list">
-            {filtered.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)" }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
                 <div style={{ fontSize: 15, fontWeight: 600 }}>No events found</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>Try adjusting your filters or search query.</div>
               </div>
             )}
-            {filtered.map(ev => (
-              <EventRow key={ev.id} ev={ev} onEdit={setEditingEvent} />
+
+            {filtered.map((ev) => (
+              <EventRow
+                key={ev._id || ev.id}
+                ev={{
+                  ...ev,
+                  name: ev.title || ev.name,
+                  venue: ev.venue || ev.location,
+                  sold: ev.sold || 0,
+                  capacity: ev.capacity || 100,
+                  revenue: ev.revenue || 0,
+                  status: ev.status || "draft",
+                  emoji: getEventEmoji(ev.category),
+                  emojiColor: getEventEmojiColor(ev.category),
+                  bookings: ev.bookings || [],
+                  date: ev.eventDate || ev.date || "Date TBA",
+time: ev.gateOpens || ev.time || "",
+                }}
+                onEdit={setEditingEvent}
+              />
             ))}
           </div>
         </div>
       </div>
 
-      {/* MODALS */}
-      {showCreate && <CreateEventModal onClose={() => setShowCreate(false)} />}
-      {editingEvent && <EditModal ev={editingEvent} onClose={() => setEditingEvent(null)} />}
+      {showCreate && (
+        <CreateEventModal
+          onClose={() => setShowCreate(false)}
+          onCreated={fetchEvents}
+        />
+      )}
+
+      {editingEvent && (
+        <EditModal
+          ev={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onUpdated={fetchEvents}
+        />
+      )}
     </>
   );
 }
