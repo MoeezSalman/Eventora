@@ -75,13 +75,13 @@ export default function BookingConfirmedPage() {
 const location = useLocation();
 
 const booking = location.state || {
-  eventTitle: "Nescafé Basement Live — Season Finale",
-  venue: "Alhamra Arts Council, Lahore",
+  eventTitle: "Sample Event",
+  venue: "Sample Venue",
   date: "22 Mar 2025",
   time: "7:00 PM",
   gateOpens: "6:00 PM",
-  email: "moeez@example.com",
-  bookingId: "#EVT239184",
+  email: "user@example.com",
+  bookingId: "EVT239184",
   ticketCode: "EVT-92A7-4ED1",
   seats: ["A12", "A13"],
   ticketType: "Premium",
@@ -91,7 +91,6 @@ const booking = location.state || {
   totalPaid: 9450,
   paymentStatus: "Paid",
 };
-
   return (
     <>
       <style>{styles}</style>
@@ -159,7 +158,7 @@ Event: ${booking.eventTitle}
 Venue: ${booking.venue}
 Date: ${booking.date}
 Time: ${booking.time}
-Seats: ${booking.seats.join(", ")}
+Seats: ${(booking.seats || []).join(", ")}
 Ticket Type: ${booking.ticketType}
 Total Paid: Rs. ${booking.totalPaid}
   `}
@@ -183,7 +182,7 @@ Total Paid: Rs. ${booking.totalPaid}
 
             <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {booking.seats.map(s => (
+                {(booking.seats || []).map(s => (
   <span key={s} className="seat-chip">{s}</span>
 ))}
               </div>
@@ -202,7 +201,7 @@ Total Paid: Rs. ${booking.totalPaid}
               {[
   { label: 'Booking ID', value: `#${booking.bookingId}` },
   { label: 'Tickets', value: `${booking.ticketCount} × ${booking.ticketType}` },
-  { label: 'Seats', value: booking.seats.join(', ') },
+  { label: 'Seats', value: (booking.seats || []).join(', ') },
   { label: 'Subtotal', value: `Rs. ${booking.subtotal.toLocaleString()}` },
   { label: 'Service Fee', value: `Rs. ${booking.serviceFee.toLocaleString()}` },
   { label: 'Payment Status', value: booking.paymentStatus, highlight: true },

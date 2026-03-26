@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getAllEvents } from "../services/eventService";
 
 const styles = `
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -381,21 +382,48 @@ const styles = `
   }
 `;
 
-const events = [
-  { id: 1, type: "Music", emoji: "🎵", name: "Nescafé Basement Live — Season Finale", location: "Alhamra Arts Council", date: "Mar 22", price: "From Rs. 2,500", banner: "music" },
-  { id: 2, type: "Sports", emoji: "⚽", name: "PSL 10 — Lahore Qalandars vs Karachi Kings", location: "Gaddafi Stadium", date: "Mar 28", price: "Rs. 1,200", banner: "sports" },
-  { id: 3, type: "Conferences", emoji: "🗂️", name: "TechSummit 2026: AI in Live Events", location: "Expo Center", date: "Apr 10", price: "Rs. 4,100", banner: "conferences" },
-  { id: 4, type: "Cultural", emoji: "🎭", name: "Classical Night: Sufi Rhythm", location: "Alhamra Hall", date: "Apr 5", price: "Rs. 1,750", banner: "cultural" },
-  { id: 5, type: "Workshops", emoji: "🛠", name: "Photography Masterclass", location: "Art Hub", date: "Apr 13", price: "Rs. 2,300", banner: "workshops" },
-  { id: 6, type: "Music", emoji: "🎵", name: "Neon Pop Bash", location: "Rafay Concert Arena", date: "Apr 23", price: "Rs. 3,500", banner: "music" }
-];
+
 
 const categories = ["All", "Music", "Sports", "Conferences", "Workshops", "Cultural", "Date", "Price", "Location"];
 
 export default function Dashboard() {
+  const [events, setEvents] = useState([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState("");
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("All");
+  useEffect(() => {
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const res = await getAllEvents();
+      setEvents(res.events || res || []);
+    } catch (err) {
+      setError("Failed to load events");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  fetchEvents();
+}, []);
+
+const getEventEmoji = (category) => {
+  switch (category) {
+    case "Music":
+      return "🎵";
+    case "Sports":
+      return "⚽";
+    case "Conferences":
+      return "🗂️";
+    case "Cultural":
+      return "🎭";
+    case "Workshops":
+      return "🛠";
+    default:
+      return "🎫";
+  }
+};
   return (
     <>
       <style>{styles}</style>
@@ -453,24 +481,44 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
-
+              {loading && <p style={{ color: "#aaa" }}>Loading events...</p>}
+{error && <p style={{ color: "#f87171" }}>{error}</p>}
             <div className="events-grid">
-              {events.map(event => (
-                <article key={event.id} className="event-card" onClick={() => navigate('/event')}>
-                  <div className={`event-banner ${event.banner}`}>
-                    {event.emoji}
-                    <span className="event-category">{event.emoji} {event.type}</span>
-                    <span className="event-date">{event.date}</span>
-                  </div>
-                  <div className="event-details">
-                    <h3 className="event-title">{event.name}</h3>
-                    <p className="event-meta">📍 {event.location}</p>
-                    <div className="event-footer">
-                      <span className="event-price">{event.price}</span>
-                    </div>
-                  </div>
-                </article>
-              ))}
+              {events.map(event => {
+  const eventId = event._id || event.id;
+  const eventTitle = event.title || event.name;
+  const eventVenue = event.venue || event.location || "Location TBA";
+  const eventDate = event.eventDate || event.date || "Date TBA";
+
+  return (
+    <article
+      key={eventId}
+      className="event-card"
+      onClick={() => navigate(`/event/${eventId}`)}
+    >
+      <div className={`event-banner ${(event.category || "").toLowerCase()}`}>
+        {getEventEmoji(event.category)}
+        <span className="event-category">
+          {getEventEmoji(event.category)} {event.category || "Event"}
+        </span>
+        <span className="event-date">{eventDate}</span>
+      </div>
+
+      <div className="event-details">
+        <h3 className="event-title">{eventTitle}</h3>
+        <p className="event-meta">📍 {eventVenue}</p>
+
+        <div className="event-footer">
+          <span className="event-price">
+            {typeof event.price === "number"
+              ? `Rs. ${event.price.toLocaleString()}`
+              : event.price || "Price TBA"}
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+})}
             </div>
           </section>
 

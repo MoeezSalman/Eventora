@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { getEventById, getEventSeats } from "../services/eventService";
+import { createBooking } from "../services/bookingService";
 
 const styles = `
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -70,48 +72,103 @@ function buildSection(rows, seatsPerRow, type, prefix) {
 
 function SeatRow({ rowLabel, seats, selected, onToggle }) {
   const half = Math.floor(seats.length / 2);
-  const color = (s) => {
-    if (selected.includes(s.id)) return '#7c3aed';
-    if (s.type === 'vip') return '#78400a';
-    if (s.type === 'premium') return '#0e3a3a';
-    return '#1e2340';
+
+  const color = (seat) => {
+    if (seat.isBooked) return "#3a3a3a";
+    if (selected.includes(seat.code)) return "#7c3aed";
+    if (seat.tier === "VIP") return "#78400a";
+    if (seat.tier === "Premium") return "#0e3a3a";
+    return "#1e2340";
   };
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-      <span style={{ width: 12, fontSize: 9, color: '#555', textAlign: 'right', flexShrink: 0 }}>{rowLabel}</span>
-      <div style={{ display: 'flex', gap: 2 }}>
-        {seats.slice(0, half).map(s => (
-          <button key={s.id} className="seat-btn" style={{ background: color(s) }}
-            onClick={() => onToggle(s.id)} title={s.label} />
+    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+      <span style={{ width: 12, fontSize: 9, color: "#555", textAlign: "right", flexShrink: 0 }}>
+        {rowLabel}
+      </span>
+
+      <div style={{ display: "flex", gap: 2 }}>
+        {seats.slice(0, half).map((seat) => (
+          <button
+            key={seat.code}
+            className="seat-btn"
+            disabled={seat.isBooked}
+            style={{ background: color(seat) }}
+            onClick={() => onToggle(seat.code)}
+            title={seat.code}
+          />
         ))}
       </div>
+
       <div style={{ width: 14, flexShrink: 0 }} />
-      <div style={{ display: 'flex', gap: 2 }}>
-        {seats.slice(half).map(s => (
-          <button key={s.id} className="seat-btn" style={{ background: color(s) }}
-            onClick={() => onToggle(s.id)} title={s.label} />
+
+      <div style={{ display: "flex", gap: 2 }}>
+        {seats.slice(half).map((seat) => (
+          <button
+            key={seat.code}
+            className="seat-btn"
+            disabled={seat.isBooked}
+            style={{ background: color(seat) }}
+            onClick={() => onToggle(seat.code)}
+            title={seat.code}
+          />
         ))}
       </div>
-      <span style={{ width: 12, fontSize: 9, color: '#555', flexShrink: 0 }}>{rowLabel}</span>
+
+      <span style={{ width: 12, fontSize: 9, color: "#555", flexShrink: 0 }}>
+        {rowLabel}
+      </span>
     </div>
   );
 }
+function groupSeatsByTierAndRow(seats = []) {
+  const grouped = {
+    VIP: {},
+    Premium: {},
+    Standard: {},
+  };
 
+  seats.forEach((seat) => {
+    const row = seat.code.charAt(0); // A, B, C...
+    if (!grouped[seat.tier][row]) grouped[seat.tier][row] = [];
+    grouped[seat.tier][row].push(seat);
+  });
+
+  const sortRows = (rowsObj) =>
+    Object.entries(rowsObj).map(([row, seats]) => ({
+      row,
+      seats: seats.sort((a, b) => {
+        const aNum = parseInt(a.code.slice(1), 10);
+        const bNum = parseInt(b.code.slice(1), 10);
+        return aNum - bNum;
+      }),
+    }));
+
+  return {
+    VIP: sortRows(grouped.VIP),
+    Premium: sortRows(grouped.Premium),
+    Standard: sortRows(grouped.Standard),
+  };
+}
 export default function SeatSelectionPage() {
+  const { id } = useParams();
+const [event, setEvent] = useState(null);
+const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [activeType, setActiveType] = useState('premium');
 
-  const vipSection      = useMemo(() => buildSection(['A','B','C'], 18, 'vip', 'VIP'), []);
-  const premiumSection  = useMemo(() => buildSection(['A','B','C','D'], 22, 'premium', 'P'), []);
-  const standardSection = useMemo(() => buildSection(['A','B','C','D','E','F'], 26, 'standard', 'S'), []);
-
-  const allSeats = useMemo(
-    () => [...vipSection, ...premiumSection, ...standardSection].flatMap(r => r.seats),
-    []
+const [seatRows, setSeatRows] = useState({
+  VIP: [],
+  Premium: [],
+  Standard: [],
+});
+const allSeats = useMemo(() => {
+  return [...seatRows.VIP, ...seatRows.Premium, ...seatRows.Standard].flatMap(
+    (rowGroup) => rowGroup.seats
   );
+}, [seatRows]);
 
-  const priceMap = { standard: 2500, premium: 4500, vip: 8500 };
   const seatTypeLabel = {
   standard: "Standard",
   premium: "Premium",
@@ -119,23 +176,26 @@ export default function SeatSelectionPage() {
 };
 
 const selectedSeatObjects = selectedSeats
-  .map(id => allSeats.find(seat => seat.id === id))
+  .map((code) => allSeats.find((seat) => seat.code === code))
   .filter(Boolean);
 
 const ticketType =
-  selectedSeatObjects.length > 0 ? selectedSeatObjects[0].type : activeType;
+  selectedSeatObjects.length > 0
+    ? selectedSeatObjects[0].tier
+    : activeType === "vip"
+    ? "VIP"
+    : activeType === "premium"
+    ? "Premium"
+    : "Standard";
 
 const bookingId = `EVT${Math.floor(100000 + Math.random() * 900000)}`;
 const ticketCode = `EVT-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
   const toggleSeat = (id) =>
     setSelectedSeats(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
 
-  const totalPrice = selectedSeats.reduce((sum, id) => {
-    const seat = allSeats.find(s => s.id === id);
-    return sum + (seat ? priceMap[seat.type] : 0);
-  }, 0);
+const totalPrice = selectedSeatObjects.reduce((sum, seat) => sum + (seat.price || 0), 0);
   const serviceFee = Math.round(totalPrice * 0.05);
-  const getLabel = (id) => allSeats.find(s => s.id === id)?.label ?? id;
+  const getLabel = (code) => allSeats.find((s) => s.code === code)?.code ?? code;
 
   const steps = [
     { num: 1, label: 'Choose Tickets', done: true },
@@ -143,29 +203,107 @@ const ticketCode = `EVT-${Math.random().toString(36).slice(2, 6).toUpperCase()}-
     { num: 3, label: 'Checkout' },
     { num: 4, label: 'Confirmation' },
   ];
-const handleCheckout = () => {
-  if (selectedSeats.length === 0) return;
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const eventRes = await getEventById(id);
+      setEvent(eventRes.event || eventRes);
 
-  navigate("/booking-confirmed", {
-    state: {
-      eventTitle: "Nescafé Basement Live — Season Finale",
-      venue: "Alhamra Arts Council, Lahore",
-      date: "22 Mar 2025",
-      time: "7:00 PM",
-      gateOpens: "6:00 PM",
-      email: "moeez@example.com",
-      bookingId,
-      ticketCode,
+      const seatRes = await getEventSeats(id);
+const seatEvent = seatRes.event || seatRes;
+setSeatRows(groupSeatsByTierAndRow(seatEvent.seats || []));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [id]);
+const handleCheckout = async () => {
+  if (selectedSeats.length === 0 || !event) return;
+
+  try {
+    const payload = {
+      eventId: event._id || event.id,
       seats: selectedSeats,
-      ticketType: seatTypeLabel[ticketType],
+      ticketType: ticketType,
       ticketCount: selectedSeats.length,
       subtotal: totalPrice,
       serviceFee,
       totalPaid: totalPrice + serviceFee,
-      paymentStatus: "Paid",
-    },
-  });
+    };
+
+    const res = await createBooking(payload);
+    const booking = res.booking || res;
+    navigate("/booking-confirmed", {
+      state: {
+        eventTitle: event.title || event.name,
+        venue: event.venue || event.location,
+        date: event.eventDate
+          ? new Date(event.eventDate).toLocaleDateString()
+          : "Date TBA",
+
+        time: event.gateOpens || "Time TBA",
+        gateOpens: event.gateOpens || "Time TBA",
+        email: booking.email || "user@example.com",
+        bookingId: booking.bookingId || bookingId,
+        ticketCode: booking.ticketCode || ticketCode,
+        seats: booking.seats || selectedSeats,
+        ticketType: booking.ticketType || ticketType,
+        ticketCount: booking.ticketCount || selectedSeats.length,
+        subtotal: booking.subtotal || totalPrice,
+        serviceFee: booking.serviceFee || serviceFee,
+        totalPaid: booking.totalPaid || totalPrice + serviceFee,
+        paymentStatus: booking.paymentStatus || "Paid",
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    alert(err.response?.data?.message || "Booking failed");
+  }
 };
+const tierPriceMap = useMemo(() => {
+  const map = {
+    Standard: 0,
+    Premium: 0,
+    VIP: 0,
+  };
+
+  (event?.ticketTiers || []).forEach((tier) => {
+    if (tier.name === "Standard") map.Standard = Number(tier.price) || 0;
+    if (tier.name === "Premium") map.Premium = Number(tier.price) || 0;
+    if (tier.name === "VIP") map.VIP = Number(tier.price) || 0;
+  });
+
+  return map;
+}, [event]);
+
+const ticketTypes = [
+  {
+    key: "standard",
+    label: "Standard",
+    price: tierPriceMap.Standard,
+    dot: "#6366f1",
+  },
+  {
+    key: "premium",
+    label: "Premium",
+    price: tierPriceMap.Premium,
+    dot: "#06b6d4",
+  },
+  {
+    key: "vip",
+    label: "VIP",
+    price: tierPriceMap.VIP,
+    dot: "#f59e0b",
+  },
+];
+if (loading) return <div style={{ color: "#fff", padding: 20 }}>Loading seats...</div>;
+if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</div>;
+
   return (
     <>
       <style>{styles}</style>
@@ -178,7 +316,7 @@ const handleCheckout = () => {
               <div style={{ width: 26, height: 26, background: 'linear-gradient(135deg,#8b5cf6,#a855f7)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>⚡</div>
               Eventora
             </div>
-            <button onClick={() => navigate("/")} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: '#bbb', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+            <button onClick={() => navigate(`/event/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: '#bbb', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
               ← Event Details
             </button>
           </div>
@@ -204,8 +342,12 @@ const handleCheckout = () => {
 
           {/* LEFT: Seat Map */}
           <div className="seat-map-scroll">
-            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 2 }}>Select Your Seats</h2>
-            <p style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>Alhamra Arts Council · Capacity 2,400</p>
+           <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 2 }}>
+  Select Your Seats
+</h2>
+<p style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+  {(event.venue || event.location || "Venue TBA")} · Capacity {event.seats?.length || 0}
+</p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 14 }}>
               {['+', '−', '↺'].map(icon => (
@@ -220,30 +362,36 @@ const handleCheckout = () => {
               <p style={{ textAlign: 'center', fontSize: 9, color: '#555', marginBottom: 16 }}>Main Performance Area</p>
 
               <div style={{ marginBottom: 14 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', textAlign: 'center', letterSpacing: '0.08em', marginBottom: 8 }}>⭐ VIP SECTION — RS. 8,500</p>
-                {vipSection.map(({ row, seats }) => (
-                  <div key={row} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <SeatRow rowLabel={row} seats={seats} selected={selectedSeats} onToggle={toggleSeat} />
-                  </div>
-                ))}
+               <p style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", textAlign: "center", letterSpacing: "0.08em", marginBottom: 8 }}>
+  ⭐ VIP SECTION — RS. 8500
+</p>
+                {seatRows.VIP.map(({ row, seats }) => (
+  <div key={row} style={{ display: "flex", justifyContent: "center" }}>
+    <SeatRow rowLabel={row} seats={seats} selected={selectedSeats} onToggle={toggleSeat} />
+  </div>
+))}
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#22d3ee', textAlign: 'center', letterSpacing: '0.08em', marginBottom: 8 }}>💎 PREMIUM SECTION — RS. 4,500</p>
-                {premiumSection.map(({ row, seats }) => (
-                  <div key={row} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <SeatRow rowLabel={row} seats={seats} selected={selectedSeats} onToggle={toggleSeat} />
-                  </div>
-                ))}
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", textAlign: "center", letterSpacing: "0.08em", marginBottom: 8 }}>
+  💎 PREMIUM SECTION — RS. 4500
+</p>
+                {seatRows.Premium.map(({ row, seats }) => (
+  <div key={row} style={{ display: "flex", justifyContent: "center" }}>
+    <SeatRow rowLabel={row} seats={seats} selected={selectedSeats} onToggle={toggleSeat} />
+  </div>
+))}
               </div>
 
               <div style={{ marginBottom: 16 }}>
-                <p style={{ fontSize: 10, fontWeight: 600, color: '#888', textAlign: 'center', letterSpacing: '0.08em', marginBottom: 8 }}>STANDARD SECTION — RS. 2,500</p>
-                {standardSection.map(({ row, seats }) => (
-                  <div key={row} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <SeatRow rowLabel={row} seats={seats} selected={selectedSeats} onToggle={toggleSeat} />
-                  </div>
-                ))}
+                <p style={{ fontSize: 10, fontWeight: 600, color: "#888", textAlign: "center", letterSpacing: "0.08em", marginBottom: 8 }}>
+  STANDARD SECTION — RS. 2500
+</p>
+                {seatRows.Standard.map(({ row, seats }) => (
+  <div key={row} style={{ display: "flex", justifyContent: "center" }}>
+    <SeatRow rowLabel={row} seats={seats} selected={selectedSeats} onToggle={toggleSeat} />
+  </div>
+))}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -268,18 +416,21 @@ const handleCheckout = () => {
               <span style={{ fontSize: 44, transform: 'rotate(-15deg)', filter: 'drop-shadow(0 4px 12px rgba(239,68,68,0.5))' }}>🎸</span>
             </div>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-              <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 5 }}>Nescafé Basement — Finale</p>
-              <p style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>🕐 Sat, 22 March · 7:00 PM</p>
-              <p style={{ fontSize: 12, color: '#888' }}>📍 Alhamra Arts Council, Lahore</p>
-            </div>
+  <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 5 }}>
+    {event.title || event.name}
+  </p>
+  
+  <p style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>
+    🕐 {event.eventDate ? new Date(event.eventDate).toLocaleDateString() : "Date TBA"}
+  </p>
+  <p style={{ fontSize: 12, color: '#888' }}>
+    📍 {event.venue || event.location || "Location TBA"}
+  </p>
+</div>
 
             <div style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
               <p style={{ fontSize: 10, color: '#666', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>TICKET TYPE</p>
-              {[
-                { key: 'standard', label: 'Standard', price: 'Rs. 2,500', dot: '#6366f1' },
-                { key: 'premium',  label: 'Premium',  price: 'Rs. 4,500', dot: '#06b6d4' },
-                { key: 'vip',      label: 'VIP',      price: 'Rs. 8,500', dot: '#f59e0b' },
-              ].map(t => (
+              {ticketTypes.map((t) => (
                 <button key={t.key} className={`ticket-type-btn ${activeType === t.key ? 'active' : ''}`} onClick={() => setActiveType(t.key)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: t.dot, flexShrink: 0 }} />

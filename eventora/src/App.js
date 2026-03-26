@@ -14,8 +14,8 @@ function App() {
         <Route path="/" element={<EventoraAuth />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/organizer-dashboard" element={<OrganizerDashboard />} />
-        <Route path="/event" element={<EventDetailPage />} />
-        <Route path="/seat-selection" element={<SeatSelectionPage />} />
+        <Route path="/event/:id" element={<EventDetailPage />} />
+        <Route path="/seat-selection/:id" element={<SeatSelectionPage />} />
         <Route path="/booking-confirmed" element={<BookingConfirmedPage />} />
       </Routes>
     </BrowserRouter>
