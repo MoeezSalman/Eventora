@@ -1,4 +1,5 @@
 import api from "./api";
+import axios from "axios";
 
 export const getOrganizerDashboard = async () => {
   const { data } = await api.get("/organizer/dashboard");
@@ -16,6 +17,11 @@ export const createOrganizerEvent = async (payload) => {
 };
 
 export const updateOrganizerEvent = async (id, payload) => {
-  const { data } = await api.put(`/organizer/events/${id}`, payload);
+  const { data } = await api.patch(`/organizer/events/${id}`, payload);
+  return data;
+};
+
+export const deleteOrganizerEvent = async (id) => {
+  const { data } = await api.delete(`/organizer/events/${id}`);
   return data;
 };

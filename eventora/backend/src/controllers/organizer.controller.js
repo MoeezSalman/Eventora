@@ -139,9 +139,31 @@ async function updateOrganizerEvent(req, res, next) {
   }
 }
 
+async function deleteOrganizerEvent(req, res, next) {
+  try {
+    const event = await Event.findOneAndDelete({
+      _id: req.params.id,
+      organizer: req.user._id, // 🔒 security check
+    });
+
+    if (!event) {
+      const error = new Error("Event not found or not authorized");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    res.json({ success: true, message: "Event deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getOrganizerDashboard,
   getOrganizerEvents,
   createOrganizerEvent,
   updateOrganizerEvent,
+  deleteOrganizerEvent, // ✅ ADD THIS
 };
+
+
