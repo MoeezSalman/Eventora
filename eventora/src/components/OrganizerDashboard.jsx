@@ -3,6 +3,7 @@ import {
   getOrganizerEvents,
   createOrganizerEvent,
   updateOrganizerEvent,
+  deleteOrganizerEvent, // ✅ add here
 } from "../services/organizerService";
 
 const styles = `
@@ -358,8 +359,9 @@ function getEventEmojiColor(category) {
   }
 }
 
-function EventRow({ ev, onEdit }) {
+function EventRow({ ev, onEdit, onDelete }) {
   const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const pct = ev.capacity ? Math.round((ev.sold / ev.capacity) * 100) : 0;
   const fillColor = pct > 85 ? "#ef4444" : pct > 60 ? "#f59e0b" : "linear-gradient(90deg,#8b5cf6,#ec4899)";
 
@@ -398,19 +400,54 @@ function EventRow({ ev, onEdit }) {
           <div className="revenue-lbl">Revenue</div>
         </div>
 
-        <div className="row-actions" onClick={(e) => e.stopPropagation()}>
-          <button className="icon-btn" title="Edit" onClick={() => onEdit(ev)}>✏️</button>
-          <button className="icon-btn" title="Analytics">📊</button>
-          <button className="icon-btn" title="More">⋯</button>
-          <button
-            className="icon-btn"
-            title={open ? "Collapse" : "Expand"}
-            onClick={() => setOpen((o) => !o)}
-            style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.25s" }}
-          >
-            ▾
-          </button>
-        </div>
+<div className="row-actions" onClick={(e) => e.stopPropagation()}>
+  <button className="icon-btn" onClick={() => onEdit(ev)}>✏️</button>
+
+  <div style={{ position: "relative" }}>
+    <button
+      className="icon-btn"
+      onClick={() => setMenuOpen((p) => !p)}
+    >
+      ⋯
+    </button>
+
+    {menuOpen && (
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 36,
+          background: "#13132a",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 10,
+          padding: 8,
+          zIndex: 10,
+          minWidth: 120,
+        }}
+      >
+        <button
+          style={{
+            width: "100%",
+            padding: "8px 10px",
+            border: "none",
+            background: "transparent",
+            color: "#ef4444",
+            textAlign: "left",
+            cursor: "pointer",
+          }}
+          onClick={() => {
+            onDelete(ev);
+            setMenuOpen(false);
+          }}
+        >
+          🗑 Delete Event
+        </button>
+      </div>
+    )}
+  </div>
+
+  <button className="icon-btn" onClick={() => setOpen((o) => !o)}>▾</button>
+</div>
       </div>
 
       <div className={`expand-panel ${open ? "open" : ""}`}>
@@ -938,7 +975,18 @@ export default function OrganizerDashboard() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+const handleDelete = async (ev) => {
+  if (!window.confirm("Delete this event permanently?")) return;
 
+  try {
+    await deleteOrganizerEvent(ev._id || ev.id);
+    alert("Event deleted");
+    fetchEvents();
+  } catch (err) {
+  console.error(err);
+  alert(err.response?.data?.message || err.message || "Delete failed");
+}
+};
   const fetchEvents = async () => {
     try {
       setLoading(true);
@@ -1076,6 +1124,7 @@ export default function OrganizerDashboard() {
 time: ev.gateOpens || ev.time || "",
                 }}
                 onEdit={setEditingEvent}
+                onDelete={handleDelete}
               />
             ))}
           </div>
