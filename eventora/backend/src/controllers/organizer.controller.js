@@ -27,33 +27,60 @@ async function getOrganizerDashboard(req, res, next) {
 
 async function getOrganizerEvents(req, res, next) {
   try {
-    const events = await Event.find({ organizer: req.user._id }).sort({ createdAt: -1 }).lean();
-    const bookings = await Booking.find({
-      event: { $in: events.map((e) => e._id) }
-    }).lean();
+    // 1. Get all events of organizer
+    const events = await Event.find({ organizer: req.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
 
+    const eventIds = events.map((e) => e._id);
+
+    // 2. Get all bookings for these events
+    const bookings = await Booking.find({
+      event: { $in: eventIds },
+    }).populate("user", "name email");
+
+    // 3. Group bookings by eventId
+    const bookingMap = {};
+
+    bookings.forEach((b) => {
+      const id = b.event.toString();
+
+      if (!bookingMap[id]) bookingMap[id] = [];
+
+      bookingMap[id].push(b);
+    });
+
+    // 4. Enrich events with analytics
     const enrichedEvents = events.map((event) => {
-      const eventBookings = bookings.filter(
-        (booking) => String(booking.event) === String(event._id)
+      const evBookings = bookingMap[event._id.toString()] || [];
+
+      const sold = evBookings.reduce(
+        (sum, b) => sum + (b.ticketCount || 0),
+        0
       );
 
-      const sold = event.seats?.filter((seat) => seat.isBooked).length || 0;
-      const revenue = eventBookings.reduce((sum, booking) => sum + (booking.totalPaid || 0), 0);
+      const revenue = evBookings.reduce(
+        (sum, b) => sum + (b.totalPaid || 0),
+        0
+      );
 
       return {
         ...event,
+        bookings: evBookings,
         sold,
         revenue,
         capacity: event.seats?.length || 0,
-        bookings: eventBookings,
       };
     });
 
     res.json({ success: true, events: enrichedEvents });
   } catch (err) {
+    console.error("getOrganizerEvents error:", err);
     next(err);
   }
 }
+
+
 
 async function createOrganizerEvent(req, res, next) {
   try {
