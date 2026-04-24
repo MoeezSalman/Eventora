@@ -301,7 +301,11 @@ function StatusBadge({ status }) {
     </span>
   );
 }
-
+const formatPKR = (value) => {
+  return `Rs. ${(Number(value) || 0).toLocaleString("en-PK", {
+    maximumFractionDigits: 0,
+  })}`;
+};
 function ProgressBar({ pct, color }) {
   return (
     <div className="progress-bar">
@@ -395,8 +399,8 @@ function EventRow({ ev, onEdit, onDelete }) {
 
         <div className="revenue-stat">
           <div className="revenue-val">
-            Rs. {ev.revenue > 999999 ? (ev.revenue / 1000000).toFixed(1) + "M" : ev.revenue.toLocaleString()}
-          </div>
+  {formatPKR(ev.revenue)}
+</div>
           <div className="revenue-lbl">Revenue</div>
         </div>
 
@@ -507,7 +511,9 @@ function EventRow({ ev, onEdit, onDelete }) {
                         {b.name}
                       </div>
                     </td>
-                    <td style={{ color: "var(--muted)" }}>{b.seats}</td>
+                    <td style={{ color: "var(--muted)" }}>
+  {b.seats?.length || 0} seats
+</td>
                     <td>
                       <span
                         style={{
@@ -516,24 +522,26 @@ function EventRow({ ev, onEdit, onDelete }) {
                           padding: "2px 8px",
                           borderRadius: 20,
                           background:
-                            b.type === "VIP"
+                            b.ticketType === "VIP"
                               ? "rgba(245,158,11,0.15)"
-                              : b.type === "Premium"
+                              : b.ticketType === "Premium"
                               ? "rgba(6,182,212,0.15)"
                               : "rgba(139,92,246,0.15)",
                           color:
-                            b.type === "VIP"
+                            b.ticketType=== "VIP"
                               ? "#f59e0b"
-                              : b.type === "Premium"
+                              : b.ticketType === "Premium"
                               ? "#06b6d4"
                               : "#a78bfa",
                         }}
                       >
-                        {b.type}
+                        {b.ticketType}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700 }}>{b.paid}</td>
-                    <td style={{ color: "var(--muted)", fontSize: 12 }}>{b.time}</td>
+                    <td style={{ fontWeight: 700 }}>
+  Rs. {b.totalPaid}
+</td>
+                    <td style={{ color: "var(--muted)", fontSize: 12 }}>{new Date(b.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1006,9 +1014,22 @@ const handleDelete = async (ev) => {
   }, []);
 
   const totalSold = events.reduce((s, e) => s + (e.sold || 0), 0);
-  const totalRevenue = events.reduce((s, e) => s + (e.revenue || 0), 0);
+  const totalRevenue = events.reduce((sum, e) => {
+  const eventRevenue = (e.bookings || []).reduce(
+    (s, b) => s + (b.totalPaid || 0),
+    0
+  );
+  return sum + eventRevenue;
+}, 0);
   const totalEvents = events.length;
-  const liveEvents = events.filter((e) => e.status === "live").length;
+const now = new Date();
+
+const liveEvents = events.filter((e) => {
+  const sold = (e.bookings || []).reduce((sum, b) => sum + (b.ticketCount || 0), 0);
+  const eventDate = new Date(e.eventDate);
+
+  return e.status !== "ended" && sold < e.capacity;
+}).length;
 
   const filtered = events.filter((ev) => {
     const matchFilter =
@@ -1059,7 +1080,7 @@ const handleDelete = async (ev) => {
               { icon: "🎟️", label: "Total Events", value: totalEvents, delta: "+2 this month", up: true, glow: "#8b5cf6" },
               { icon: "⚡", label: "Live Now", value: liveEvents, delta: "Currently active", up: true, glow: "#10b981" },
               { icon: "👥", label: "Tickets Sold", value: totalSold.toLocaleString(), delta: "+430 this week", up: true, glow: "#06b6d4" },
-              { icon: "💰", label: "Total Revenue", value: "Rs. " + (totalRevenue / 1000000).toFixed(1) + "M", delta: "+Rs. 450K", up: true, glow: "#ec4899" },
+              { icon: "💰", label: "Total Revenue", value: formatPKR(totalRevenue), delta: "+Rs. 450K", up: true, glow: "#ec4899" },
             ].map((s) => (
               <div className="stat-card" key={s.label} style={{ "--accent-glow": s.glow }}>
                 <div className="stat-icon">{s.icon}</div>
@@ -1113,9 +1134,9 @@ const handleDelete = async (ev) => {
                   ...ev,
                   name: ev.title || ev.name,
                   venue: ev.venue || ev.location,
-                  sold: ev.sold || 0,
+                  sold: (ev.bookings || []).reduce((sum, b) => sum + (b.ticketCount || 0), 0),
                   capacity: ev.capacity || 100,
-                  revenue: ev.revenue || 0,
+                  revenue: (ev.bookings || []).reduce((sum, b) => sum + (b.totalPaid || 0), 0),
                   status: ev.status || "draft",
                   emoji: getEventEmoji(ev.category),
                   emojiColor: getEventEmojiColor(ev.category),
