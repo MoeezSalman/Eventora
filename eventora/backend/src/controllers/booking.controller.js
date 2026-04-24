@@ -14,6 +14,7 @@ async function createBooking(req, res, next) {
       totalPaid,
     } = req.body;
 
+    // 1. Find event
     const event = await Event.findById(eventId);
     if (!event) {
       const error = new Error("Event not found");
@@ -21,7 +22,10 @@ async function createBooking(req, res, next) {
       throw error;
     }
 
-    const selectedSeats = event.seats.filter((seat) => seats.includes(seat.code));
+    // 2. Get selected seats from DB
+    const selectedSeats = event.seats.filter((seat) =>
+      seats.includes(seat.code)
+    );
 
     if (selectedSeats.length !== seats.length) {
       const error = new Error("Some selected seats do not exist");
@@ -29,13 +33,35 @@ async function createBooking(req, res, next) {
       throw error;
     }
 
+    // 3. Check already booked
     const alreadyBooked = selectedSeats.find((seat) => seat.isBooked);
     if (alreadyBooked) {
-      const error = new Error(`Seat ${alreadyBooked.code} is already booked`);
+      const error = new Error(
+        `Seat ${alreadyBooked.code} is already booked`
+      );
       error.statusCode = 400;
       throw error;
     }
 
+    // 4. Build seatSummary (🔥 FIXED)
+    const seatSummaryMap = {};
+
+    selectedSeats.forEach((seat) => {
+      if (!seatSummaryMap[seat.tier]) {
+        seatSummaryMap[seat.tier] = {
+          tier: seat.tier,
+          count: 0,
+          price: 0,
+        };
+      }
+
+      seatSummaryMap[seat.tier].count += 1;
+      seatSummaryMap[seat.tier].price += seat.price;
+    });
+
+    const seatSummary = Object.values(seatSummaryMap);
+
+    // 5. Mark seats as booked
     event.seats.forEach((seat) => {
       if (seats.includes(seat.code)) {
         seat.isBooked = true;
@@ -44,18 +70,27 @@ async function createBooking(req, res, next) {
 
     await event.save();
 
+    // 6. Create booking
     const booking = await Booking.create({
       user: req.user._id,
       event: event._id,
       seats,
+
+      // ✅ NEW FIELD
+      seatSummary,
+
       ticketType,
       ticketCount,
       subtotal,
       serviceFee,
       totalPaid,
+
       paymentStatus: "Paid",
-      bookingId: `EVT${Math.floor(100000 + Math.random() * 900000)}`,
-      ticketCode: `EVT-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+
+      // ✅ Use utility functions (avoid duplicates)
+      bookingId: generateBookingId(),
+      ticketCode: generateTicketCode(),
+
       email: req.user.email,
     });
 
@@ -65,6 +100,7 @@ async function createBooking(req, res, next) {
   }
 }
 
+// -----------------------------
 
 async function getMyBookings(req, res, next) {
   try {
@@ -77,6 +113,8 @@ async function getMyBookings(req, res, next) {
     next(err);
   }
 }
+
+// -----------------------------
 
 async function getBookingById(req, res, next) {
   try {
@@ -105,4 +143,8 @@ async function getBookingById(req, res, next) {
   }
 }
 
-module.exports = { createBooking, getMyBookings, getBookingById };
+module.exports = {
+  createBooking,
+  getMyBookings,
+  getBookingById,
+};
