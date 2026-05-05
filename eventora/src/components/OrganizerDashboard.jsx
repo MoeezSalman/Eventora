@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getOrganizerEvents,
   createOrganizerEvent,
   updateOrganizerEvent,
-  deleteOrganizerEvent, // ✅ add here
+  deleteOrganizerEvent,
 } from "../services/organizerService";
 
 const styles = `
@@ -133,6 +134,7 @@ const styles = `
     width:52px; height:52px; border-radius:12px;
     display:flex; align-items:center; justify-content:center;
     font-size:24px; flex-shrink:0;
+    overflow: hidden;
   }
 
   .event-info { min-width:0; }
@@ -239,6 +241,7 @@ const styles = `
     transition: border-color 0.2s, background 0.2s;
   }
   .upload-zone:hover { border-color:rgba(139,92,246,0.6); background:rgba(139,92,246,0.05); }
+  .upload-zone.uploaded { border-color: rgba(99,102,241,0.6); background: rgba(99,102,241,0.08); }
   .upload-icon { font-size:28px; margin-bottom:8px; }
   .upload-label { font-size:13px; color:var(--muted); }
   .upload-hint { font-size:11px; color:var(--dim); margin-top:4px; }
@@ -301,11 +304,44 @@ function StatusBadge({ status }) {
     </span>
   );
 }
+
 const formatPKR = (value) => {
   return `Rs. ${(Number(value) || 0).toLocaleString("en-PK", {
     maximumFractionDigits: 0,
   })}`;
 };
+
+const formatEventDate = (dateStr) => {
+  if (!dateStr) return "Date TBA";
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  } catch (e) {
+    return "Date TBA";
+  }
+};
+
+const formatEventTime = (timeStr) => {
+  if (!timeStr) return "";
+  try {
+    if (timeStr.includes(":")) {
+      return timeStr;
+    }
+    const time = new Date(`2000-01-01T${timeStr}`);
+    return time.toLocaleString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+  } catch (e) {
+    return timeStr;
+  }
+};
+
 function ProgressBar({ pct, color }) {
   return (
     <div className="progress-bar">
@@ -319,47 +355,29 @@ function ProgressBar({ pct, color }) {
 
 function getEventEmoji(category) {
   switch (category) {
-    case "Music":
-      return "🎵";
-    case "Sports":
-      return "⚽";
-    case "Conferences":
-      return "🗂️";
-    case "Cultural":
-      return "🎭";
-    case "Workshops":
-      return "🛠";
-    case "Photography":
-      return "📸";
-    case "Comedy":
-      return "🎤";
-    case "Food & Drink":
-      return "🍴";
-    default:
-      return "🎫";
+    case "Music": return "🎵";
+    case "Sports": return "⚽";
+    case "Conferences": return "🗂️";
+    case "Cultural": return "🎭";
+    case "Workshops": return "🛠";
+    case "Photography": return "📸";
+    case "Comedy": return "🎤";
+    case "Food & Drink": return "🍴";
+    default: return "🎫";
   }
 }
 
 function getEventEmojiColor(category) {
   switch (category) {
-    case "Music":
-      return "linear-gradient(135deg,#5d3a8a,#8b5cf6)";
-    case "Sports":
-      return "linear-gradient(135deg,#064e3b,#059669)";
-    case "Conferences":
-      return "linear-gradient(135deg,#1e3a5f,#2563eb)";
-    case "Cultural":
-      return "linear-gradient(135deg,#6a1a3a,#be185d)";
-    case "Workshops":
-      return "linear-gradient(135deg,#0f766e,#06b6d4)";
-    case "Photography":
-      return "linear-gradient(135deg,#1e3a4a,#0891b2)";
-    case "Comedy":
-      return "linear-gradient(135deg,#7c2d12,#f97316)";
-    case "Food & Drink":
-      return "linear-gradient(135deg,#854d0e,#eab308)";
-    default:
-      return "linear-gradient(135deg,#8b5cf6,#ec4899)";
+    case "Music": return "linear-gradient(135deg,#5d3a8a,#8b5cf6)";
+    case "Sports": return "linear-gradient(135deg,#064e3b,#059669)";
+    case "Conferences": return "linear-gradient(135deg,#1e3a5f,#2563eb)";
+    case "Cultural": return "linear-gradient(135deg,#6a1a3a,#be185d)";
+    case "Workshops": return "linear-gradient(135deg,#0f766e,#06b6d4)";
+    case "Photography": return "linear-gradient(135deg,#1e3a4a,#0891b2)";
+    case "Comedy": return "linear-gradient(135deg,#7c2d12,#f97316)";
+    case "Food & Drink": return "linear-gradient(135deg,#854d0e,#eab308)";
+    default: return "linear-gradient(135deg,#8b5cf6,#ec4899)";
   }
 }
 
@@ -372,14 +390,36 @@ function EventRow({ ev, onEdit, onDelete }) {
   return (
     <div className="event-row">
       <div className="event-row-main" onClick={() => setOpen((o) => !o)}>
-        <div className="event-emoji-box" style={{ background: ev.emojiColor }}>
-          {ev.emoji}
+
+        <div
+          className="event-emoji-box"
+          style={
+            ev.bannerImage
+              ? { background: "none", padding: 0, overflow: "hidden" }
+              : { background: ev.emojiColor }
+          }
+        >
+          {ev.bannerImage ? (
+            <img
+              src={ev.bannerImage}
+              alt={ev.name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: "12px",
+                display: "block",
+              }}
+            />
+          ) : (
+            ev.emoji
+          )}
         </div>
 
         <div className="event-info">
           <div className="event-name">{ev.name}</div>
           <div className="event-meta-row">
-            <span className="event-meta-item">📅 {ev.date} {ev.time ? `· ${ev.time}` : ""}</span>
+            <span className="event-meta-item">📅 {ev.formattedDate}</span>
             <span className="event-meta-item">📍 {ev.venue}</span>
             <span className="event-meta-item" style={{ color: "#9ca3af" }}>{ev.category}</span>
           </div>
@@ -398,60 +438,41 @@ function EventRow({ ev, onEdit, onDelete }) {
         </div>
 
         <div className="revenue-stat">
-          <div className="revenue-val">
-  {formatPKR(ev.revenue)}
-</div>
+          <div className="revenue-val">{formatPKR(ev.revenue)}</div>
           <div className="revenue-lbl">Revenue</div>
         </div>
 
-<div className="row-actions" onClick={(e) => e.stopPropagation()}>
-  <button className="icon-btn" onClick={() => onEdit(ev)}>✏️</button>
+        <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+          <button className="icon-btn" onClick={() => onEdit(ev)}>✏️</button>
 
-  <div style={{ position: "relative" }}>
-    <button
-      className="icon-btn"
-      onClick={() => setMenuOpen((p) => !p)}
-    >
-      ⋯
-    </button>
+          <div style={{ position: "relative" }}>
+            <button className="icon-btn" onClick={() => setMenuOpen((p) => !p)}>⋯</button>
 
-    {menuOpen && (
-      <div
-        style={{
-          position: "absolute",
-          right: 0,
-          top: 36,
-          background: "#13132a",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 10,
-          padding: 8,
-          zIndex: 10,
-          minWidth: 120,
-        }}
-      >
-        <button
-          style={{
-            width: "100%",
-            padding: "8px 10px",
-            border: "none",
-            background: "transparent",
-            color: "#ef4444",
-            textAlign: "left",
-            cursor: "pointer",
-          }}
-          onClick={() => {
-            onDelete(ev);
-            setMenuOpen(false);
-          }}
-        >
-          🗑 Delete Event
-        </button>
-      </div>
-    )}
-  </div>
+            {menuOpen && (
+              <div
+                style={{
+                  position: "absolute", right: 0, top: 36,
+                  background: "#13132a",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 10, padding: 8, zIndex: 10, minWidth: 120,
+                }}
+              >
+                <button
+                  style={{
+                    width: "100%", padding: "8px 10px", border: "none",
+                    background: "transparent", color: "#ef4444",
+                    textAlign: "left", cursor: "pointer",
+                  }}
+                  onClick={() => { onDelete(ev); setMenuOpen(false); }}
+                >
+                  🗑 Delete Event
+                </button>
+              </div>
+            )}
+          </div>
 
-  <button className="icon-btn" onClick={() => setOpen((o) => !o)}>▾</button>
-</div>
+          <button className="icon-btn" onClick={() => setOpen((o) => !o)}>▾</button>
+        </div>
       </div>
 
       <div className={`expand-panel ${open ? "open" : ""}`}>
@@ -482,12 +503,8 @@ function EventRow({ ev, onEdit, onDelete }) {
           <div>
             <div
               style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--muted)",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                marginBottom: 12,
+                fontSize: 11, fontWeight: 600, color: "var(--muted)",
+                letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12,
               }}
             >
               Recent Bookings
@@ -511,37 +528,31 @@ function EventRow({ ev, onEdit, onDelete }) {
                         {b.name}
                       </div>
                     </td>
-                    <td style={{ color: "var(--muted)" }}>
-  {b.seats?.length || 0} seats
-</td>
+                    <td style={{ color: "var(--muted)" }}>{b.seats?.length || 0} seats</td>
                     <td>
                       <span
                         style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: "2px 8px",
+                          fontSize: 11, fontWeight: 600, padding: "2px 8px",
                           borderRadius: 20,
-                          background:
-                            b.ticketType === "VIP"
-                              ? "rgba(245,158,11,0.15)"
-                              : b.ticketType === "Premium"
-                              ? "rgba(6,182,212,0.15)"
-                              : "rgba(139,92,246,0.15)",
-                          color:
-                            b.ticketType=== "VIP"
-                              ? "#f59e0b"
-                              : b.ticketType === "Premium"
-                              ? "#06b6d4"
-                              : "#a78bfa",
+                          background: b.ticketType === "VIP"
+                            ? "rgba(245,158,11,0.15)"
+                            : b.ticketType === "Premium"
+                            ? "rgba(6,182,212,0.15)"
+                            : "rgba(139,92,246,0.15)",
+                          color: b.ticketType === "VIP"
+                            ? "#f59e0b"
+                            : b.ticketType === "Premium"
+                            ? "#06b6d4"
+                            : "#a78bfa",
                         }}
                       >
                         {b.ticketType}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 700 }}>
-  Rs. {b.totalPaid}
-</td>
-                    <td style={{ color: "var(--muted)", fontSize: 12 }}>{new Date(b.createdAt).toLocaleString()}</td>
+                    <td style={{ fontWeight: 700 }}>Rs. {b.totalPaid}</td>
+                    <td style={{ color: "var(--muted)", fontSize: 12 }}>
+                      {new Date(b.createdAt).toLocaleString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -559,25 +570,39 @@ function EventRow({ ev, onEdit, onDelete }) {
 
 const TICKET_TIERS_DEFAULT = [
   { name: "Standard", price: "", quantity: "" },
-  { name: "Premium", price: "", quantity: "" },
-  { name: "VIP", price: "", quantity: "" },
+  { name: "Premium",  price: "", quantity: "" },
+  { name: "VIP",      price: "", quantity: "" },
 ];
 
 function CreateEventModal({ onClose, onCreated }) {
+  const fileInputRef = useRef(null);
   const [tiers, setTiers] = useState(TICKET_TIERS_DEFAULT);
-const [form, setForm] = useState({
-  title: "",
-  category: "",
-  venue: "",
-  eventDate: "",
-  time: "",
-  description: "",
-  capacity: "",
-  price: "",
-  status: "upcoming",
-});
+  const [form, setForm] = useState({
+    title: "", category: "", venue: "", eventDate: "",
+    time: "", description: "", capacity: "", price: "", status: "upcoming",
+  });
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState("");
 
   const updateForm = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleBannerSelect = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Please choose an image file for the banner."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("Please select an image smaller than 5MB."); return; }
+    const previewUrl = URL.createObjectURL(file);
+    setBannerFile(file);
+    setBannerPreview(previewUrl);
+  };
+
+  const handleBannerInputChange = (e) => handleBannerSelect(e.target.files?.[0]);
+  const handleBannerZoneClick   = () => fileInputRef.current?.click();
+  const handleBannerDrop        = (e) => { e.preventDefault(); e.stopPropagation(); handleBannerSelect(e.dataTransfer.files?.[0]); };
+  const handleBannerDragOver    = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+  useEffect(() => {
+    return () => { if (bannerPreview) URL.revokeObjectURL(bannerPreview); };
+  }, [bannerPreview]);
 
   const handleCreate = async () => {
     try {
@@ -586,22 +611,25 @@ const [form, setForm] = useState({
         return;
       }
 
+      let bannerImage = "";
+      if (bannerFile) {
+        bannerImage = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(bannerFile);
+        });
+      }
+
       const payload = {
-  title: form.title,
-  category: form.category,
-  venue: form.venue,
-  eventDate: form.eventDate,
-  gateOpens: form.time, // send selected time here
-  description: form.description,
-  status: form.status,
-  capacity: Number(form.capacity) || 0,
-  price: Number(form.price) || 0,
-  ticketTiers: tiers.map((tier) => ({
-    name: tier.name,
-    price: Number(tier.price) || 0,
-    quantity: Number(tier.quantity) || 0,
-  })),
-};
+        title: form.title, category: form.category, venue: form.venue,
+        eventDate: form.eventDate, gateOpens: form.time,
+        description: form.description, status: form.status,
+        capacity: Number(form.capacity) || 0, price: Number(form.price) || 0,
+        bannerImage,
+        ticketTiers: tiers.map((t) => ({
+          name: t.name, price: Number(t.price) || 0, quantity: Number(t.quantity) || 0,
+        })),
+      };
 
       const res = await createOrganizerEvent(payload);
       alert("Event created!");
@@ -628,22 +656,14 @@ const [form, setForm] = useState({
         <div className="modal-body">
           <div className="form-group">
             <label>Event Name *</label>
-            <input
-              className="form-input"
-              placeholder="e.g. Nescafé Basement Season Finale"
-              value={form.title}
-              onChange={(e) => updateForm("title", e.target.value)}
-            />
+            <input className="form-input" placeholder="e.g. Nescafé Basement Season Finale"
+              value={form.title} onChange={(e) => updateForm("title", e.target.value)} />
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Category *</label>
-              <select
-                className="form-select"
-                value={form.category}
-                onChange={(e) => updateForm("category", e.target.value)}
-              >
+              <select className="form-select" value={form.category} onChange={(e) => updateForm("category", e.target.value)}>
                 <option value="">Select category</option>
                 <option value="Music">Music</option>
                 <option value="Sports">Sports</option>
@@ -655,78 +675,70 @@ const [form, setForm] = useState({
                 <option value="Food & Drink">Food & Drink</option>
               </select>
             </div>
-
             <div className="form-group">
               <label>Venue *</label>
-              <input
-                className="form-input"
-                placeholder="e.g. Alhamra Arts Council"
-                value={form.venue}
-                onChange={(e) => updateForm("venue", e.target.value)}
-              />
+              <input className="form-input" placeholder="e.g. Alhamra Arts Council"
+                value={form.venue} onChange={(e) => updateForm("venue", e.target.value)} />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Event Date *</label>
-              <input
-                className="form-input"
-                type="date"
-                value={form.eventDate}
-                onChange={(e) => updateForm("eventDate", e.target.value)}
-              />
+              <input className="form-input" type="date" value={form.eventDate}
+                onChange={(e) => updateForm("eventDate", e.target.value)} />
             </div>
             <div className="form-group">
               <label>Event Time *</label>
-              <input
-                className="form-input"
-                type="time"
-                value={form.time}
-                onChange={(e) => updateForm("time", e.target.value)}
-              />
+              <input className="form-input" type="time" value={form.time}
+                onChange={(e) => updateForm("time", e.target.value)} />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Total Capacity *</label>
-              <input
-                className="form-input"
-                type="number"
-                placeholder="e.g. 2400"
-                value={form.capacity}
-                onChange={(e) => updateForm("capacity", e.target.value)}
-              />
+              <input className="form-input" type="number" placeholder="e.g. 2400"
+                value={form.capacity} onChange={(e) => updateForm("capacity", e.target.value)} />
             </div>
             <div className="form-group">
               <label>Starting Price *</label>
-              <input
-                className="form-input"
-                type="number"
-                placeholder="e.g. 2500"
-                value={form.price}
-                onChange={(e) => updateForm("price", e.target.value)}
-              />
+              <input className="form-input" type="number" placeholder="e.g. 2500"
+                value={form.price} onChange={(e) => updateForm("price", e.target.value)} />
             </div>
           </div>
 
           <div className="form-group">
             <label>Event Description</label>
-            <textarea
-              className="form-textarea"
-              placeholder="Tell attendees what to expect..."
-              value={form.description}
-              onChange={(e) => updateForm("description", e.target.value)}
-            />
+            <textarea className="form-textarea" placeholder="Tell attendees what to expect..."
+              value={form.description} onChange={(e) => updateForm("description", e.target.value)} />
           </div>
 
           <div className="form-group">
             <label>Event Banner</label>
-            <div className="upload-zone">
-              <div className="upload-icon">🖼️</div>
-              <div className="upload-label">Drag & drop or click to upload</div>
-              <div className="upload-hint">Recommended: 1200 × 630 px · JPG or PNG · Max 5MB</div>
+            <div
+              className={`upload-zone${bannerPreview ? " uploaded" : ""}`}
+              onClick={handleBannerZoneClick}
+              onDrop={handleBannerDrop}
+              onDragOver={handleBannerDragOver}
+            >
+              <input ref={fileInputRef} type="file" accept="image/*"
+                style={{ display: "none" }} onChange={handleBannerInputChange} />
+              {bannerPreview ? (
+                <>
+                  <img src={bannerPreview} alt="Event banner preview"
+                    style={{ width: "100%", borderRadius: 12, maxHeight: 200, objectFit: "cover", marginBottom: 14 }} />
+                  <div style={{ fontSize: 13, color: "#c4b5fd" }}>
+                    Selected file: {bannerFile?.name || "Image selected"}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="upload-icon">🖼️</div>
+                  <div className="upload-label">Drag & drop or click to upload</div>
+                  <div className="upload-hint">Recommended: 1200 × 630 px · JPG or PNG · Max 5MB</div>
+                </>
+              )}
             </div>
           </div>
 
@@ -737,68 +749,22 @@ const [form, setForm] = useState({
                 <div key={i} className="tier-row">
                   <span className="tier-name">{tier.name}</span>
                   <div style={{ position: "relative" }}>
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: 8,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        fontSize: 12,
-                        color: "var(--muted)",
-                      }}
-                    >
-                      Rs.
-                    </span>
-                    <input
-                      className="tier-price-input"
-                      style={{ paddingLeft: 30 }}
-                      placeholder="Price"
+                    <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "var(--muted)" }}>Rs.</span>
+                    <input className="tier-price-input" style={{ paddingLeft: 30 }} placeholder="Price"
                       value={tier.price}
-                      onChange={(e) =>
-                        setTiers((prev) =>
-                          prev.map((t, j) => (j === i ? { ...t, price: e.target.value } : t))
-                        )
-                      }
-                    />
+                      onChange={(e) => setTiers((prev) => prev.map((t, j) => j === i ? { ...t, price: e.target.value } : t))} />
                   </div>
-                    <input
-                      className="tier-price-input"
-                      placeholder="Qty"
-                      value={tier.quantity}
-                      onChange={(e) =>
-                        setTiers((prev) =>
-                          prev.map((t, j) => (j === i ? { ...t, quantity: e.target.value } : t))
-                        )
-                      }
-                    />
-                  <button
-                    type="button"
+                  <input className="tier-price-input" placeholder="Qty" value={tier.quantity}
+                    onChange={(e) => setTiers((prev) => prev.map((t, j) => j === i ? { ...t, quantity: e.target.value } : t))} />
+                  <button type="button"
                     onClick={() => setTiers((prev) => prev.filter((_, j) => j !== i))}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 7,
-                      border: "1px solid rgba(239,68,68,0.3)",
-                      background: "rgba(239,68,68,0.1)",
-                      color: "#ef4444",
-                      cursor: "pointer",
-                      fontSize: 15,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
+                    style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#ef4444", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     ×
                   </button>
                 </div>
               ))}
-              <button
-                type="button"
-                className="add-tier-btn"
-                onClick={() =>
-                  setTiers((prev) => [...prev, { name: `Tier ${prev.length + 1}`, price: "", quantity: "" }])
-                }
-              >
+              <button type="button" className="add-tier-btn"
+                onClick={() => setTiers((prev) => [...prev, { name: `Tier ${prev.length + 1}`, price: "", quantity: "" }])}>
                 + Add Tier
               </button>
             </div>
@@ -827,9 +793,7 @@ const [form, setForm] = useState({
 
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Save Draft</button>
-          <button className="btn btn-primary" onClick={handleCreate}>
-            Publish Event →
-          </button>
+          <button className="btn btn-primary" onClick={handleCreate}>Publish Event →</button>
         </div>
       </div>
     </div>
@@ -837,44 +801,77 @@ const [form, setForm] = useState({
 }
 
 function EditModal({ ev, onClose, onUpdated }) {
-    const [form, setForm] = useState({
-      title: ev.title || ev.name || "",
-      venue: ev.venue || ev.location || "",
-      eventDate: ev.eventDate || ev.date || "",
-      time: ev.gateOpens || ev.time || "",
-      capacity: ev.capacity || "",
-      status: ev.status || "draft",
-      description: ev.description || "",
-      category: ev.category || "",
-      price: ev.price || "",
-    });
+  const fileInputRef = useRef(null);
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState(ev.bannerImage || "");
+  const [bannerPreviewObjectUrl, setBannerPreviewObjectUrl] = useState(null);
+  const [tiers, setTiers] = useState(
+    (ev.ticketTiers && ev.ticketTiers.length ? ev.ticketTiers : TICKET_TIERS_DEFAULT)
+      .map((tier) => ({ name: tier.name, price: tier.price?.toString() || "", quantity: tier.quantity?.toString() || "" }))
+  );
+  const [form, setForm] = useState({
+    title: ev.title || ev.name || "",
+    venue: ev.venue || ev.location || "",
+    eventDate: ev.eventDate || ev.date || "",
+    time: ev.gateOpens || ev.time || "",
+    capacity: ev.capacity || "",
+    status: ev.status || "draft",
+    description: ev.description || "",
+    category: ev.category || "",
+    price: ev.price || "",
+  });
 
-  const updateForm = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  useEffect(() => { setBannerPreview(ev.bannerImage || ""); }, [ev.bannerImage]);
+  useEffect(() => { return () => { if (bannerPreviewObjectUrl) URL.revokeObjectURL(bannerPreviewObjectUrl); }; }, [bannerPreviewObjectUrl]);
+
+  const updateForm = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleBannerSelect = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Please choose an image file for the banner."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("Please select an image smaller than 5MB."); return; }
+    if (bannerPreviewObjectUrl) URL.revokeObjectURL(bannerPreviewObjectUrl);
+    const previewUrl = URL.createObjectURL(file);
+    setBannerFile(file);
+    setBannerPreview(previewUrl);
+    setBannerPreviewObjectUrl(previewUrl);
   };
 
-const handleUpdate = async () => {
-  try {
-    const payload = {
-  title: form.title,
-  venue: form.venue,
-  eventDate: form.eventDate,
-  gateOpens: form.time, // save edited time here too
-  capacity: Number(form.capacity) || 0,
-  status: form.status,
-  description: form.description,
-  category: form.category,
-  price: Number(form.price) || 0,
-};
+  const handleBannerInputChange = (e) => handleBannerSelect(e.target.files?.[0]);
+  const handleBannerZoneClick   = () => fileInputRef.current?.click();
+  const handleBannerDrop        = (e) => { e.preventDefault(); e.stopPropagation(); handleBannerSelect(e.dataTransfer.files?.[0]); };
+  const handleBannerDragOver    = (e) => { e.preventDefault(); e.stopPropagation(); };
 
-    const res = await updateOrganizerEvent(ev._id || ev.id, payload);
-    alert("Event updated!");
-    onClose();
-    onUpdated?.(res);
-  } catch (err) {
-    alert(err.response?.data?.message || "Update failed");
-  }
-};
+  const handleUpdate = async () => {
+    try {
+      let bannerImage = bannerPreview || "";
+      if (bannerFile) {
+        bannerImage = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(bannerFile);
+        });
+      }
+
+      const payload = {
+        title: form.title, venue: form.venue, eventDate: form.eventDate,
+        gateOpens: form.time, capacity: Number(form.capacity) || 0,
+        status: form.status, description: form.description,
+        category: form.category, price: Number(form.price) || 0,
+        bannerImage,
+        ticketTiers: tiers.map((t) => ({
+          name: t.name, price: Number(t.price) || 0, quantity: Number(t.quantity) || 0,
+        })),
+      };
+
+      const res = await updateOrganizerEvent(ev._id || ev.id, payload);
+      alert("Event updated!");
+      onClose();
+      onUpdated?.(res);
+    } catch (err) {
+      alert(err.response?.data?.message || "Update failed");
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -882,9 +879,7 @@ const handleUpdate = async () => {
         <div className="modal-header">
           <div>
             <div className="modal-title">Edit Event</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>
-              {ev.title || ev.name}
-            </div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>{ev.title || ev.name}</div>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
@@ -892,60 +887,36 @@ const handleUpdate = async () => {
         <div className="modal-body">
           <div className="form-group">
             <label>Event Title</label>
-            <input
-              className="form-input"
-              value={form.title}
-              onChange={(e) => updateForm("title", e.target.value)}
-            />
+            <input className="form-input" value={form.title} onChange={(e) => updateForm("title", e.target.value)} />
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Event Date</label>
-              <input
-                className="form-input"
-                type="date"
-                value={form.eventDate}
-                onChange={(e) => updateForm("eventDate", e.target.value)}
-              />
+              <input className="form-input" type="date" value={form.eventDate}
+                onChange={(e) => updateForm("eventDate", e.target.value)} />
             </div>
             <div className="form-group">
               <label>Event Time</label>
-              <input
-                className="form-input"
-                type="time"
-                value={form.time}
-                onChange={(e) => updateForm("time", e.target.value)}
-              />
+              <input className="form-input" type="time" value={form.time}
+                onChange={(e) => updateForm("time", e.target.value)} />
             </div>
           </div>
 
           <div className="form-group">
             <label>Venue</label>
-            <input
-              className="form-input"
-              value={form.venue}
-              onChange={(e) => updateForm("venue", e.target.value)}
-            />
+            <input className="form-input" value={form.venue} onChange={(e) => updateForm("venue", e.target.value)} />
           </div>
 
           <div className="form-group">
             <label>Capacity</label>
-            <input
-              className="form-input"
-              type="number"
-              value={form.capacity}
-              onChange={(e) => updateForm("capacity", e.target.value)}
-            />
+            <input className="form-input" type="number" value={form.capacity}
+              onChange={(e) => updateForm("capacity", e.target.value)} />
           </div>
 
           <div className="form-group">
             <label>Status</label>
-            <select
-              className="form-select"
-              value={form.status}
-              onChange={(e) => updateForm("status", e.target.value)}
-            >
+            <select className="form-select" value={form.status} onChange={(e) => updateForm("status", e.target.value)}>
               <option value="draft">Draft</option>
               <option value="upcoming">Upcoming</option>
               <option value="live">Live</option>
@@ -955,27 +926,98 @@ const handleUpdate = async () => {
 
           <div className="form-group">
             <label>Description</label>
-            <textarea
-              className="form-textarea"
-              placeholder="Update description..."
-              value={form.description}
-              onChange={(e) => updateForm("description", e.target.value)}
-            />
+            <textarea className="form-textarea" placeholder="Update description..."
+              value={form.description} onChange={(e) => updateForm("description", e.target.value)} />
+          </div>
+
+          <div className="form-group">
+            <label>Event Banner</label>
+            <div
+              className={`upload-zone${bannerPreview ? " uploaded" : ""}`}
+              onClick={handleBannerZoneClick}
+              onDrop={handleBannerDrop}
+              onDragOver={handleBannerDragOver}
+            >
+              <input ref={fileInputRef} type="file" accept="image/*"
+                style={{ display: "none" }} onChange={handleBannerInputChange} />
+              {bannerPreview ? (
+                <>
+                  <img src={bannerPreview} alt="Event banner preview"
+                    style={{ width: "100%", borderRadius: 12, maxHeight: 200, objectFit: "cover", marginBottom: 14 }} />
+                  <div style={{ fontSize: 13, color: "#c4b5fd" }}>
+                    {bannerFile ? `Selected file: ${bannerFile.name}` : "Current banner image"}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="upload-icon">🖼️</div>
+                  <div className="upload-label">Drag & drop or click to upload</div>
+                  <div className="upload-hint">Recommended: 1200 × 630 px · JPG or PNG · Max 5MB</div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Ticket Tiers</label>
+            <div className="ticket-tiers">
+              {tiers.map((tier, i) => (
+                <div key={i} className="tier-row">
+                  <span className="tier-name">{tier.name}</span>
+                  <div style={{ position: "relative" }}>
+                    <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "var(--muted)" }}>Rs.</span>
+                    <input className="tier-price-input" style={{ paddingLeft: 30 }} placeholder="Price"
+                      value={tier.price}
+                      onChange={(e) => setTiers((prev) => prev.map((t, j) => j === i ? { ...t, price: e.target.value } : t))} />
+                  </div>
+                  <input className="tier-price-input" placeholder="Qty" value={tier.quantity}
+                    onChange={(e) => setTiers((prev) => prev.map((t, j) => j === i ? { ...t, quantity: e.target.value } : t))} />
+                  <button type="button"
+                    onClick={() => setTiers((prev) => prev.filter((_, j) => j !== i))}
+                    style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#ef4444", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="add-tier-btn"
+                onClick={() => setTiers((prev) => [...prev, { name: `Tier ${prev.length + 1}`, price: "", quantity: "" }])}>
+                + Add Tier
+              </button>
+            </div>
           </div>
         </div>
 
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleUpdate}>
-            Save Changes →
-          </button>
+          <button className="btn btn-primary" onClick={handleUpdate}>Save Changes →</button>
         </div>
       </div>
     </div>
   );
 }
 
+const exportEventsCSV = (events) => {
+  if (events.length === 0) { alert("No events to export"); return; }
+
+  const headers = ["Event Name", "Venue", "Date", "Time", "Status", "Tickets Sold", "Total Capacity", "Revenue"];
+  const rows = events.map((e) => [
+    e.name || e.title, e.venue,
+    formatEventDate(e.eventDate), e.gateOpens || "",
+    e.status, e.sold || 0, e.capacity || 0, e.revenue || 0,
+  ]);
+
+  const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `events-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export default function OrganizerDashboard() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -983,18 +1025,37 @@ export default function OrganizerDashboard() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-const handleDelete = async (ev) => {
-  if (!window.confirm("Delete this event permanently?")) return;
+  const [profileInitial, setProfileInitial] = useState("U");
 
-  try {
-    await deleteOrganizerEvent(ev._id || ev.id);
-    alert("Event deleted");
-    fetchEvents();
-  } catch (err) {
-  console.error(err);
-  alert(err.response?.data?.message || err.message || "Delete failed");
-}
-};
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("eventora_user") || "{}");
+    if (user.name) {
+      setProfileInitial(user.name.charAt(0).toUpperCase());
+    }
+
+    const handleProfileUpdate = () => {
+      const updatedUser = JSON.parse(localStorage.getItem("eventora_user") || "{}");
+      if (updatedUser.name) {
+        setProfileInitial(updatedUser.name.charAt(0).toUpperCase());
+      }
+    };
+
+    window.addEventListener("profileUpdated", handleProfileUpdate);
+    return () => window.removeEventListener("profileUpdated", handleProfileUpdate);
+  }, []);
+
+  const handleDelete = async (ev) => {
+    if (!window.confirm("Delete this event permanently?")) return;
+    try {
+      await deleteOrganizerEvent(ev._id || ev.id);
+      alert("Event deleted");
+      fetchEvents();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || err.message || "Delete failed");
+    }
+  };
+
   const fetchEvents = async () => {
     try {
       setLoading(true);
@@ -1009,36 +1070,24 @@ const handleDelete = async (ev) => {
     }
   };
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
+  useEffect(() => { fetchEvents(); }, []);
 
-  const totalSold = events.reduce((s, e) => s + (e.sold || 0), 0);
+  const totalSold = events.reduce((s, e) => {
+    return s + ((e.bookings || []).filter((b) => b.status !== "cancelled").reduce((sum, b) => sum + (b.ticketCount || 0), 0));
+  }, 0);
+
   const totalRevenue = events.reduce((sum, e) => {
-  const eventRevenue = (e.bookings || []).reduce(
-    (s, b) => s + (b.totalPaid || 0),
-    0
-  );
-  return sum + eventRevenue;
-}, 0);
+    return sum + ((e.bookings || []).filter((b) => b.status !== "cancelled").reduce((s, b) => s + (b.totalPaid || 0), 0));
+  }, 0);
+
   const totalEvents = events.length;
-const now = new Date();
-
-const liveEvents = events.filter((e) => {
-  const sold = (e.bookings || []).reduce((sum, b) => sum + (b.ticketCount || 0), 0);
-  const eventDate = new Date(e.eventDate);
-
-  return e.status !== "ended" && sold < e.capacity;
-}).length;
+  const liveEvents = events.filter((e) => (e.status || "").toLowerCase() === "live").length;
 
   const filtered = events.filter((ev) => {
-    const matchFilter =
-      filter === "All" || (ev.status || "").toLowerCase() === filter.toLowerCase();
-
+    const matchFilter = filter === "All" || (ev.status || "").toLowerCase() === filter.toLowerCase();
     const matchSearch =
       (ev.name || ev.title || "").toLowerCase().includes(search.toLowerCase()) ||
       (ev.venue || ev.location || "").toLowerCase().includes(search.toLowerCase());
-
     return matchFilter && matchSearch;
   });
 
@@ -1056,8 +1105,23 @@ const liveEvents = events.filter((e) => {
             Organizer Dashboard
           </div>
           <div className="nav-right">
-            <div className="nav-notif">🔔</div>
-            <div className="nav-avatar">M</div>
+            <button
+              type="button"
+              style={{ background: "none", border: "none", color: "var(--text)", cursor: "pointer", fontSize: 14, fontWeight: 600 }}
+              onClick={() => navigate("/bookings")}
+            >
+              📊 Monitor Bookings
+            </button>
+            {/* ── ANALYTICS BUTTON (only addition) ── */}
+            <button
+              type="button"
+              style={{ background: "none", border: "none", color: "var(--text)", cursor: "pointer", fontSize: 14, fontWeight: 600 }}
+              onClick={() => navigate("/organizer-analytics")}
+            >
+              📈 Analytics
+            </button>
+            <button type="button" className="nav-notif" onClick={() => navigate("/bookings")}>🔔</button>
+            <button type="button" className="nav-avatar" onClick={() => navigate("/profile")}>{profileInitial}</button>
           </div>
         </nav>
 
@@ -1068,19 +1132,17 @@ const liveEvents = events.filter((e) => {
               <div className="page-sub">Manage, track, and grow your events in one place.</div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost">⬇ Export CSV</button>
-              <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-                + Create Event
-              </button>
+              <button className="btn btn-ghost" onClick={() => exportEventsCSV(filtered)}>⬇ Export CSV</button>
+              <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create Event</button>
             </div>
           </div>
 
           <div className="stats-row">
             {[
-              { icon: "🎟️", label: "Total Events", value: totalEvents, delta: "+2 this month", up: true, glow: "#8b5cf6" },
-              { icon: "⚡", label: "Live Now", value: liveEvents, delta: "Currently active", up: true, glow: "#10b981" },
-              { icon: "👥", label: "Tickets Sold", value: totalSold.toLocaleString(), delta: "+430 this week", up: true, glow: "#06b6d4" },
-              { icon: "💰", label: "Total Revenue", value: formatPKR(totalRevenue), delta: "+Rs. 450K", up: true, glow: "#ec4899" },
+              { icon: "🎟️", label: "Total Events",   value: totalEvents,               delta: `${totalEvents} total`,             up: true, glow: "#8b5cf6" },
+              { icon: "⚡",  label: "Live Now",        value: liveEvents,                delta: `${liveEvents} live`,               up: true, glow: "#10b981" },
+              { icon: "👥", label: "Tickets Sold",    value: totalSold.toLocaleString(), delta: `${totalSold.toLocaleString()} sold`, up: true, glow: "#06b6d4" },
+              { icon: "💰", label: "Total Revenue",   value: formatPKR(totalRevenue),   delta: `${formatPKR(totalRevenue)} total`, up: true, glow: "#ec4899" },
             ].map((s) => (
               <div className="stat-card" key={s.label} style={{ "--accent-glow": s.glow }}>
                 <div className="stat-icon">{s.icon}</div>
@@ -1096,27 +1158,19 @@ const liveEvents = events.filter((e) => {
           <div className="toolbar">
             <div className="toolbar-left">
               {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  className={`filter-pill ${filter === f ? "active" : ""}`}
-                  onClick={() => setFilter(f)}
-                >
+                <button key={f} className={`filter-pill ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
                   {f}
                 </button>
               ))}
             </div>
             <div className="search-box">
               <span style={{ fontSize: 14, color: "var(--muted)" }}>🔍</span>
-              <input
-                placeholder="Search events or venues…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <input placeholder="Search events or venues…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
 
           {loading && <p style={{ color: "#aaa", marginBottom: 12 }}>Loading events...</p>}
-          {error && <p style={{ color: "#ef4444", marginBottom: 12 }}>{error}</p>}
+          {error   && <p style={{ color: "#ef4444", marginBottom: 12 }}>{error}</p>}
 
           <div className="events-list">
             {!loading && filtered.length === 0 && (
@@ -1134,15 +1188,17 @@ const liveEvents = events.filter((e) => {
                   ...ev,
                   name: ev.title || ev.name,
                   venue: ev.venue || ev.location,
-                  sold: (ev.bookings || []).reduce((sum, b) => sum + (b.ticketCount || 0), 0),
-                  capacity: ev.capacity || 100,
-                  revenue: (ev.bookings || []).reduce((sum, b) => sum + (b.totalPaid || 0), 0),
+                  sold: (ev.bookings || []).filter((b) => b.status !== "cancelled").reduce((sum, b) => sum + (b.ticketCount || 0), 0),
+                  capacity: Number(ev.capacity) || 0,
+                  revenue: (ev.bookings || []).filter((b) => b.status !== "cancelled").reduce((sum, b) => sum + (b.totalPaid || 0), 0),
                   status: ev.status || "draft",
                   emoji: getEventEmoji(ev.category),
                   emojiColor: getEventEmojiColor(ev.category),
+                  bannerImage: ev.bannerImage || "",
                   bookings: ev.bookings || [],
                   date: ev.eventDate || ev.date || "Date TBA",
-time: ev.gateOpens || ev.time || "",
+                  time: ev.gateOpens || ev.time || "",
+                  formattedDate: formatEventDate(ev.eventDate) + (ev.gateOpens ? ` · ${formatEventTime(ev.gateOpens)}` : ""),
                 }}
                 onEdit={setEditingEvent}
                 onDelete={handleDelete}
@@ -1153,18 +1209,11 @@ time: ev.gateOpens || ev.time || "",
       </div>
 
       {showCreate && (
-        <CreateEventModal
-          onClose={() => setShowCreate(false)}
-          onCreated={fetchEvents}
-        />
+        <CreateEventModal onClose={() => setShowCreate(false)} onCreated={fetchEvents} />
       )}
 
       {editingEvent && (
-        <EditModal
-          ev={editingEvent}
-          onClose={() => setEditingEvent(null)}
-          onUpdated={fetchEvents}
-        />
+        <EditModal ev={editingEvent} onClose={() => setEditingEvent(null)} onUpdated={fetchEvents} />
       )}
     </>
   );

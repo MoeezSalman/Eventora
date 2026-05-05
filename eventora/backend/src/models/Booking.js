@@ -25,7 +25,15 @@ const bookingSchema = new mongoose.Schema({
   bookingId: String,
   ticketCode: String,
 
-  paymentStatus: String,
+  paymentStatus: {
+    type: String,
+    default: "Paid",
+  },
+  status: {
+    type: String,
+    enum: ["confirmed", "cancelled"],
+    default: "confirmed",
+  },
   email: String
 }, { timestamps: true });
 

@@ -11,9 +11,18 @@ connectDB();
 
 const app = express();
 
+const defaultOrigins = ["http://localhost:3000", "http://localhost:3001"];
+const allowedOrigins = [...new Set([process.env.CLIENT_URL, ...defaultOrigins].filter(Boolean))];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "*",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );

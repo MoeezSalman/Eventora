@@ -8,8 +8,9 @@ async function getOrganizerDashboard(req, res, next) {
     const eventIds = events.map((event) => event._id);
     const bookings = await Booking.find({ event: { $in: eventIds } });
 
-    const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalPaid, 0);
-    const totalTicketsSold = bookings.reduce((sum, booking) => sum + booking.ticketCount, 0);
+    const revenueBookings = bookings.filter((booking) => booking.status !== "cancelled");
+    const totalRevenue = revenueBookings.reduce((sum, booking) => sum + booking.totalPaid, 0);
+    const totalTicketsSold = revenueBookings.reduce((sum, booking) => sum + booking.ticketCount, 0);
 
     res.json({
       success: true,
@@ -53,13 +54,14 @@ async function getOrganizerEvents(req, res, next) {
     // 4. Enrich events with analytics
     const enrichedEvents = events.map((event) => {
       const evBookings = bookingMap[event._id.toString()] || [];
+      const activeBookings = evBookings.filter((b) => b.status !== "cancelled");
 
-      const sold = evBookings.reduce(
+      const sold = activeBookings.reduce(
         (sum, b) => sum + (b.ticketCount || 0),
         0
       );
 
-      const revenue = evBookings.reduce(
+      const revenue = activeBookings.reduce(
         (sum, b) => sum + (b.totalPaid || 0),
         0
       );
@@ -69,7 +71,7 @@ async function getOrganizerEvents(req, res, next) {
         bookings: evBookings,
         sold,
         revenue,
-        capacity: event.seats?.length || 0,
+        capacity: event.capacity || event.seats?.length || 0,
       };
     });
 
@@ -95,6 +97,7 @@ async function createOrganizerEvent(req, res, next) {
       gateOpens,
       status,
       ticketTiers,
+      capacity,
     } = req.body;
 
     if (!title || !category || !venue || !eventDate) {
@@ -118,12 +121,13 @@ async function createOrganizerEvent(req, res, next) {
       city: city || "Lahore",
       description: description || "",
       bannerEmoji: bannerEmoji || "🎫",
+      bannerImage: req.body.bannerImage || "",
       eventDate,
       gateOpens: gateOpens || "6:00 PM",
       status: status || "upcoming",
       organizer: req.user._id,
       ticketTiers: parsedTiers,
-      seats: buildDefaultSeatMap(),
+      seats: buildDefaultSeatMap(Number(capacity) || 0),
     });
 
     res.status(201).json({ success: true, event });
@@ -148,16 +152,28 @@ async function updateOrganizerEvent(req, res, next) {
       "city",
       "description",
       "bannerEmoji",
+      "bannerImage",
       "eventDate",
       "gateOpens",
       "status",
+      "capacity",
     ];
 
+    const previousCapacity = event.capacity;
+    const updatedCapacity = req.body.capacity !== undefined ? Number(req.body.capacity) : previousCapacity;
+
     allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) event[field] = req.body[field];
+      if (req.body[field] !== undefined) {
+        event[field] = field === "capacity" ? updatedCapacity : req.body[field];
+      }
     });
 
     if (req.body.ticketTiers) event.ticketTiers = req.body.ticketTiers;
+
+    // If capacity changed, rebuild seats array
+    if (req.body.capacity !== undefined && updatedCapacity !== previousCapacity) {
+      event.seats = buildDefaultSeatMap(updatedCapacity);
+    }
 
     await event.save();
     res.json({ success: true, event });

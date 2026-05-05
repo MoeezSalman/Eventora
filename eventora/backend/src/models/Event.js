@@ -31,6 +31,7 @@ const eventSchema = new mongoose.Schema(
     city: { type: String, default: "Lahore" },
     description: { type: String, default: "" },
     bannerEmoji: { type: String, default: "🎫" },
+    bannerImage: { type: String, default: "" },
     eventDate: { type: Date, required: true },
     gateOpens: { type: String, default: "6:00 PM" },
     status: {
@@ -43,6 +44,7 @@ const eventSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    capacity: { type: Number, default: 0 },
     ticketTiers: [ticketTierSchema],
     seats: [seatSchema],
   },

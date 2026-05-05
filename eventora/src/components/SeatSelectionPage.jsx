@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getEventById, getEventSeats } from "../services/eventService";
 import { createBooking } from "../services/bookingService";
+import { formatTimeLabel } from "../utils/formatTime";
+import ProfileHeader from "./ProfileHeader";
 
 const styles = `
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -169,6 +171,59 @@ const allSeats = useMemo(() => {
   );
 }, [seatRows]);
 
+const tierPriceMap = useMemo(() => {
+  const map = {
+    Standard: 0,
+    Premium: 0,
+    VIP: 0,
+  };
+
+  (event?.ticketTiers || []).forEach((tier) => {
+    if (tier.name === "Standard") map.Standard = Number(tier.price) || 0;
+    if (tier.name === "Premium") map.Premium = Number(tier.price) || 0;
+    if (tier.name === "VIP") map.VIP = Number(tier.price) || 0;
+  });
+
+  if (!map.Standard) {
+    const standardSeat = allSeats.find((seat) => seat.tier === "Standard" && Number(seat.price) > 0);
+    map.Standard = Number(standardSeat?.price) || 0;
+  }
+
+  if (!map.Premium) {
+    const premiumSeat = allSeats.find((seat) => seat.tier === "Premium" && Number(seat.price) > 0);
+    map.Premium = Number(premiumSeat?.price) || 0;
+  }
+
+  if (!map.VIP) {
+    const vipSeat = allSeats.find((seat) => seat.tier === "VIP" && Number(seat.price) > 0);
+    map.VIP = Number(vipSeat?.price) || 0;
+  }
+
+  return map;
+}, [event, allSeats]);
+
+const ticketTypes = [
+  {
+    key: "standard",
+    label: "Standard",
+    price: tierPriceMap.Standard,
+    dot: "#6366f1",
+  },
+  {
+    key: "premium",
+    label: "Premium",
+    price: tierPriceMap.Premium,
+    dot: "#06b6d4",
+  },
+  {
+    key: "vip",
+    label: "VIP",
+    price: tierPriceMap.VIP,
+    dot: "#f59e0b",
+  },
+];
+const ticketTypeMap = Object.fromEntries(ticketTypes.map((ticketType) => [ticketType.key, ticketType]));
+
   const seatTypeLabel = {
   standard: "Standard",
   premium: "Premium",
@@ -193,9 +248,13 @@ const ticketCode = `EVT-${Math.random().toString(36).slice(2, 6).toUpperCase()}-
   const toggleSeat = (id) =>
     setSelectedSeats(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
 
-const totalPrice = selectedSeatObjects.reduce((sum, seat) => sum + (seat.price || 0), 0);
+const totalPrice = selectedSeatObjects.reduce((sum, seat) => {
+  const seatTierPrice = tierPriceMap[seat.tier] || seat.price || 0;
+  return sum + Number(seatTierPrice || 0);
+}, 0);
   const serviceFee = Math.round(totalPrice * 0.05);
   const getLabel = (code) => allSeats.find((s) => s.code === code)?.code ?? code;
+  const formatPrice = (price) => `Rs. ${Number(price || 0).toLocaleString()}`;
 
   const steps = [
     { num: 1, label: 'Choose Tickets', done: true },
@@ -246,8 +305,8 @@ const handleCheckout = async () => {
           ? new Date(event.eventDate).toLocaleDateString()
           : "Date TBA",
 
-        time: event.gateOpens || "Time TBA",
-        gateOpens: event.gateOpens || "Time TBA",
+        time: formatTimeLabel(event.gateOpens) || "Time TBA",
+        gateOpens: formatTimeLabel(event.gateOpens) || "Time TBA",
         email: booking.email || "user@example.com",
         bookingId: booking.bookingId || bookingId,
         ticketCode: booking.ticketCode || ticketCode,
@@ -265,61 +324,18 @@ const handleCheckout = async () => {
     alert(err.response?.data?.message || "Booking failed");
   }
 };
-const tierPriceMap = useMemo(() => {
-  const map = {
-    Standard: 0,
-    Premium: 0,
-    VIP: 0,
-  };
-
-  (event?.ticketTiers || []).forEach((tier) => {
-    if (tier.name === "Standard") map.Standard = Number(tier.price) || 0;
-    if (tier.name === "Premium") map.Premium = Number(tier.price) || 0;
-    if (tier.name === "VIP") map.VIP = Number(tier.price) || 0;
-  });
-
-  return map;
-}, [event]);
-
-const ticketTypes = [
-  {
-    key: "standard",
-    label: "Standard",
-    price: tierPriceMap.Standard,
-    dot: "#6366f1",
-  },
-  {
-    key: "premium",
-    label: "Premium",
-    price: tierPriceMap.Premium,
-    dot: "#06b6d4",
-  },
-  {
-    key: "vip",
-    label: "VIP",
-    price: tierPriceMap.VIP,
-    dot: "#f59e0b",
-  },
-];
 if (loading) return <div style={{ color: "#fff", padding: 20 }}>Loading seats...</div>;
 if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</div>;
 
   return (
     <>
       <style>{styles}</style>
+      <ProfileHeader />
       <div style={{ minHeight: '100vh', background: '#0b0b12' }}>
-
-        {/* Navbar */}
-        <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 52, borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#0b0b12', position: 'sticky', top: 0, zIndex: 100 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 700, fontSize: 16 }}>
-              <div style={{ width: 26, height: 26, background: 'linear-gradient(135deg,#8b5cf6,#a855f7)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>⚡</div>
-              Eventora
-            </div>
-            <button onClick={() => navigate(`/event/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: '#bbb', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
-              ← Event Details
-            </button>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', height: 40, borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#0b0b12', position: 'sticky', top: 52, zIndex: 99 }}>
+          <button onClick={() => navigate(`/event/${id}`)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: '#bbb', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+            ← Event Details
+          </button>
 
           <div className="nav-steps" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {steps.map((s, i) => (
@@ -335,8 +351,8 @@ if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</
             ))}
           </div>
 
-          <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg,#8b5cf6,#6366f1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>M</div>
-        </nav>
+          <div style={{ width: 30 }} />
+        </div>
 
         <div className="main-layout">
 
@@ -363,7 +379,7 @@ if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</
 
               <div style={{ marginBottom: 14 }}>
                <p style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", textAlign: "center", letterSpacing: "0.08em", marginBottom: 8 }}>
-  ⭐ VIP SECTION — RS. 8500
+  ⭐ VIP SECTION — {formatPrice(ticketTypeMap.vip?.price)}
 </p>
                 {seatRows.VIP.map(({ row, seats }) => (
   <div key={row} style={{ display: "flex", justifyContent: "center" }}>
@@ -374,7 +390,7 @@ if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</
 
               <div style={{ marginBottom: 14 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", textAlign: "center", letterSpacing: "0.08em", marginBottom: 8 }}>
-  💎 PREMIUM SECTION — RS. 4500
+  💎 PREMIUM SECTION — {formatPrice(ticketTypeMap.premium?.price)}
 </p>
                 {seatRows.Premium.map(({ row, seats }) => (
   <div key={row} style={{ display: "flex", justifyContent: "center" }}>
@@ -385,7 +401,7 @@ if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</
 
               <div style={{ marginBottom: 16 }}>
                 <p style={{ fontSize: 10, fontWeight: 600, color: "#888", textAlign: "center", letterSpacing: "0.08em", marginBottom: 8 }}>
-  STANDARD SECTION — RS. 2500
+  STANDARD SECTION — {formatPrice(ticketTypeMap.standard?.price)}
 </p>
                 {seatRows.Standard.map(({ row, seats }) => (
   <div key={row} style={{ display: "flex", justifyContent: "center" }}>
@@ -436,7 +452,7 @@ if (!event) return <div style={{ color: "#fff", padding: 20 }}>Event not found</
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: t.dot, flexShrink: 0 }} />
                     <span style={{ fontSize: 13, color: '#ddd', fontWeight: 500 }}>{t.label}</span>
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: activeType === t.key ? '#a78bfa' : '#aaa' }}>{t.price}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: activeType === t.key ? '#a78bfa' : '#aaa' }}>{formatPrice(t.price)}</span>
                 </button>
               ))}
 

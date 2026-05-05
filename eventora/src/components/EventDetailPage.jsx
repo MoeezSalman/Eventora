@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getEventById } from "../services/eventService";
+import { formatTimeLabel } from "../utils/formatTime";
+import ProfileHeader from "./ProfileHeader";
 
 const styles = `
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -104,7 +106,7 @@ export default function EventDetailPage() {
 const eventDate = event.eventDate || event.date || null;
 const eventVenue = event.venue || event.location || "Location TBA";
 const eventTitle = event.title || event.name || "Untitled Event";
-const gateOpens = event.gateOpens || null;
+const gateOpens = formatTimeLabel(event.gateOpens || null);
 const startingPrice =
   Number(event.price) ||
   Math.min(
@@ -137,85 +139,40 @@ const startingPrice =
   return (
     <>
       <style>{styles}</style>
-
+      <ProfileHeader />
       <div style={{ minHeight: "100vh", background: "#0d0d14" }}>
         <nav
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            padding: isMobile ? "12px 16px" : "14px 32px",
+            justifyContent: "flex-start",
+            padding: isMobile ? "8px 16px" : "8px 32px",
             borderBottom: "1px solid rgba(255,255,255,0.06)",
             background: "#0d0d14",
             position: "sticky",
-            top: 0,
-            zIndex: 100,
+            top: 52,
+            zIndex: 99,
+            gap: 12,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 24 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontWeight: 700,
-                fontSize: isMobile ? 16 : 18,
-              }}
-            >
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  background: "linear-gradient(135deg,#8b5cf6,#a855f7)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 14,
-                }}
-              >
-                ⚡
-              </div>
-              Eventora
-            </div>
-
-            <button
-              className="nav-back"
-              onClick={() => navigate("/dashboard")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 8,
-                color: "#ccc",
-                padding: "6px 12px",
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              ← <span>Back to Events</span>
-            </button>
-          </div>
-
-          <div
+          <button
+            className="nav-back"
+            onClick={() => navigate("/dashboard")}
             style={{
-              width: 34,
-              height: 34,
-              background: "linear-gradient(135deg,#8b5cf6,#6366f1)",
-              borderRadius: "50%",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
+              gap: 6,
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              color: "#ccc",
+              padding: "6px 12px",
               fontSize: 13,
               cursor: "pointer",
-              flexShrink: 0,
             }}
           >
-            M
-          </div>
+            ← <span>Back to Events</span>
+          </button>
         </nav>
 
         <div className="page-grid">
@@ -223,7 +180,9 @@ const startingPrice =
             <div
               style={{
                 borderRadius: 14,
-                background: "linear-gradient(135deg,#1a1040 0%,#2d1b6e 40%,#4c1d95 70%,#6d28d9 100%)",
+                background: event.bannerImage
+                  ? `url(${event.bannerImage}) center/cover no-repeat`
+                  : "linear-gradient(135deg,#1a1040 0%,#2d1b6e 40%,#4c1d95 70%,#6d28d9 100%)",
                 padding: isMobile ? "28px 20px 24px" : "40px 36px 32px",
                 marginBottom: 20,
                 position: "relative",
@@ -240,19 +199,21 @@ const startingPrice =
                   pointerEvents: "none",
                 }}
               />
-              <div
-                style={{
-                  position: "absolute",
-                  right: isMobile ? 10 : 50,
-                  top: isMobile ? 10 : 16,
-                  fontSize: isMobile ? 60 : 80,
-                  transform: "rotate(-15deg)",
-                  filter: "drop-shadow(0 4px 20px rgba(239,68,68,0.5))",
-                  pointerEvents: "none",
-                }}
-              >
-                🎸
-              </div>
+              {!event.bannerImage && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: isMobile ? 10 : 50,
+                    top: isMobile ? 10 : 16,
+                    fontSize: isMobile ? 60 : 80,
+                    transform: "rotate(-15deg)",
+                    filter: "drop-shadow(0 4px 20px rgba(239,68,68,0.5))",
+                    pointerEvents: "none",
+                  }}
+                >
+                  🎸
+                </div>
+              )}
 
               <div style={{ position: "relative", zIndex: 1 }}>
                 <span

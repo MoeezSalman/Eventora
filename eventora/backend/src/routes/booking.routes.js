@@ -3,11 +3,13 @@ const {
   createBooking,
   getMyBookings,
   getBookingById,
+  cancelBooking,
 } = require("../controllers/booking.controller");
 const { protect } = require("../middleware/auth.middleware");
 
 router.post("/", protect, createBooking);
 router.get("/my", protect, getMyBookings);
 router.get("/:id", protect, getBookingById);
+router.patch("/:id/cancel", protect, cancelBooking);
 
 module.exports = router;

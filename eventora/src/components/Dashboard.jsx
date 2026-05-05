@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllEvents } from "../services/eventService";
+import ProfileHeader from "./ProfileHeader";
 
 const styles = `
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -388,25 +389,56 @@ const categories = ["All", "Music", "Sports", "Conferences", "Workshops", "Cultu
 
 export default function Dashboard() {
   const [events, setEvents] = useState([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [profileInitial, setProfileInitial] = useState("M");
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("All");
-  useEffect(() => {
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      const res = await getAllEvents();
-      setEvents(res.events || res || []);
-    } catch (err) {
-      setError("Failed to load events");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  fetchEvents();
-}, []);
+  useEffect(() => {
+    const loadProfileInitial = () => {
+      if (typeof window === "undefined") return;
+      const storedUser = localStorage.getItem("eventora_user");
+      if (!storedUser) {
+        setProfileInitial("M");
+        return;
+      }
+      try {
+        const user = JSON.parse(storedUser);
+        const initial = user?.name?.trim()?.charAt(0)?.toUpperCase() || "M";
+        setProfileInitial(initial);
+      } catch (_err) {
+        setProfileInitial("M");
+      }
+    };
+
+    loadProfileInitial();
+    window.addEventListener("focus", loadProfileInitial);
+    window.addEventListener("storage", loadProfileInitial);
+    window.addEventListener("profileUpdated", loadProfileInitial);
+    return () => {
+      window.removeEventListener("focus", loadProfileInitial);
+      window.removeEventListener("storage", loadProfileInitial);
+      window.removeEventListener("profileUpdated", loadProfileInitial);
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await getAllEvents();
+        setEvents(res.events || res || []);
+      } catch (err) {
+        setError("Failed to load events");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
 
 const getEventEmoji = (category) => {
   switch (category) {
@@ -427,23 +459,8 @@ const getEventEmoji = (category) => {
   return (
     <>
       <style>{styles}</style>
+      <ProfileHeader />
       <div className="dashboard-shell">
-        <header className="dashboard-nav">
-          <div className="logo">
-            <div className="logo-icon">🟪</div>
-            Eventora
-          </div>
-          <div className="nav-center">
-            <button>Browse</button>
-            <button>My Tickets</button>
-            <button>History</button>
-          </div>
-          <div className="nav-right">
-            <input className="nav-search" placeholder="Search events, artists, venues..." />
-            <div className="nav-profile">M</div>
-          </div>
-        </header>
-
         <main className="dashboard-main">
           <section className="hero-card">
             <div className="hero-content">
@@ -488,7 +505,19 @@ const getEventEmoji = (category) => {
   const eventId = event._id || event.id;
   const eventTitle = event.title || event.name;
   const eventVenue = event.venue || event.location || "Location TBA";
-  const eventDate = event.eventDate || event.date || "Date TBA";
+  const rawEventDate = event.eventDate || event.date;
+  const eventDate = rawEventDate
+    ? (() => {
+        const dateObj = new Date(rawEventDate);
+        return Number.isNaN(dateObj.getTime())
+          ? rawEventDate
+          : dateObj.toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            });
+      })()
+    : "Date TBA";
 
   return (
     <article
@@ -496,8 +525,13 @@ const getEventEmoji = (category) => {
       className="event-card"
       onClick={() => navigate(`/event/${eventId}`)}
     >
-      <div className={`event-banner ${(event.category || "").toLowerCase()}`}>
-        {getEventEmoji(event.category)}
+      <div
+        className={`event-banner ${(event.category || "").toLowerCase()}`}
+        style={event.bannerImage ? {
+          background: `url(${event.bannerImage}) center/cover no-repeat`,
+        } : undefined}
+      >
+        {!event.bannerImage && getEventEmoji(event.category)}
         <span className="event-category">
           {getEventEmoji(event.category)} {event.category || "Event"}
         </span>

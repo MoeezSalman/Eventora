@@ -1,6 +1,7 @@
 const Event = require("../models/Event");
 const Booking = require("../models/Booking");
 const { generateBookingId, generateTicketCode } = require("../utils/ticket");
+const { sendEmail } = require("../utils/mail");
 
 async function createBooking(req, res, next) {
   try {
@@ -86,6 +87,7 @@ async function createBooking(req, res, next) {
       totalPaid,
 
       paymentStatus: "Paid",
+      status: "confirmed",
 
       // ✅ Use utility functions (avoid duplicates)
       bookingId: generateBookingId(),
@@ -93,6 +95,40 @@ async function createBooking(req, res, next) {
 
       email: req.user.email,
     });
+
+    const eventDateText = event.eventDate
+      ? new Date(event.eventDate).toLocaleString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "TBA";
+
+    const bookingEmailSubject = `Eventora booking confirmed — ${event.title}`;
+    const bookingEmailText = `Hi ${req.user.name || "Guest"},\n\nYour booking for ${event.title} is confirmed.\n\nEvent date: ${eventDateText}\nTicket code: ${booking.ticketCode}\nSeats: ${booking.seats?.join(", ") || "TBA"}\nTotal paid: Rs. ${booking.totalPaid || 0}\n\nThank you for booking with Eventora!`;
+    const bookingEmailHtml = `<p>Hi <strong>${req.user.name || "Guest"}</strong>,</p>
+      <p>Your booking for <strong>${event.title}</strong> is confirmed.</p>
+      <ul>
+        <li><strong>Event date:</strong> ${eventDateText}</li>
+        <li><strong>Ticket code:</strong> ${booking.ticketCode}</li>
+        <li><strong>Seats:</strong> ${booking.seats?.join(", ") || "TBA"}</li>
+        <li><strong>Total paid:</strong> Rs. ${booking.totalPaid || 0}</li>
+      </ul>
+      <p>We look forward to seeing you at the event.</p>
+      <p>Thank you for booking with Eventora!</p>`;
+
+    try {
+      await sendEmail({
+        to: req.user.email,
+        subject: bookingEmailSubject,
+        text: bookingEmailText,
+        html: bookingEmailHtml,
+      });
+    } catch (mailErr) {
+      console.error("Booking confirmation email failed:", mailErr);
+    }
 
     res.status(201).json({ success: true, booking });
   } catch (err) {
@@ -115,6 +151,46 @@ async function getMyBookings(req, res, next) {
 }
 
 // -----------------------------
+
+async function cancelBooking(req, res, next) {
+  try {
+    const booking = await Booking.findById(req.params.id).populate("event");
+    if (!booking) {
+      const error = new Error("Booking not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (booking.user.toString() !== req.user._id.toString()) {
+      const error = new Error("Forbidden");
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (booking.status === "cancelled") {
+      const error = new Error("Booking is already cancelled");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (booking.event) {
+      booking.event.seats.forEach((seat) => {
+        if (booking.seats.includes(seat.code)) {
+          seat.isBooked = false;
+        }
+      });
+      await booking.event.save();
+    }
+
+    booking.status = "cancelled";
+    booking.paymentStatus = "Refunded";
+    await booking.save();
+
+    res.json({ success: true, booking });
+  } catch (err) {
+    next(err);
+  }
+}
 
 async function getBookingById(req, res, next) {
   try {
@@ -147,4 +223,5 @@ module.exports = {
   createBooking,
   getMyBookings,
   getBookingById,
+  cancelBooking,
 };
